@@ -1,10 +1,11 @@
 import SolverHeader from "@/components/SolverHeader";
 import DCAnalysisTab from "@/components/DCAnalysisTab";
 import TransientTab from "@/components/TransientTab";
+import RLCTransientTab from "@/components/RLCTransientTab";
 import ACPhasorTab from "@/components/ACPhasorTab";
 import QuickSolverTab from "@/components/QuickSolverTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Timer, Waves, BookOpen, Calculator } from "lucide-react";
+import { Zap, Timer, Waves, BookOpen, Calculator, Activity } from "lucide-react";
 
 const Index = () => {
   return (
@@ -45,7 +46,11 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger value="transient" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Timer className="w-4 h-4" />
-              <span className="hidden sm:inline">First-Order</span> Transient
+              <span className="hidden sm:inline">1st-Order</span> Transient
+            </TabsTrigger>
+            <TabsTrigger value="rlc" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Activity className="w-4 h-4" />
+              <span className="hidden sm:inline">2nd-Order</span> RLC
             </TabsTrigger>
             <TabsTrigger value="ac" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Waves className="w-4 h-4" />
@@ -60,6 +65,7 @@ const Index = () => {
           <TabsContent value="quick"><QuickSolverTab /></TabsContent>
           <TabsContent value="dc"><DCAnalysisTab /></TabsContent>
           <TabsContent value="transient"><TransientTab /></TabsContent>
+          <TabsContent value="rlc"><RLCTransientTab /></TabsContent>
           <TabsContent value="ac"><ACPhasorTab /></TabsContent>
           <TabsContent value="reference">
             <div className="p-6 rounded-lg bg-card border border-border space-y-6">
