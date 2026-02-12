@@ -7,8 +7,9 @@ import ACPhasorTab from "@/components/ACPhasorTab";
 import LaplaceTab from "@/components/LaplaceTab";
 import FourierTab from "@/components/FourierTab";
 import QuickSolverTab from "@/components/QuickSolverTab";
+import CurriculumTab from "@/components/CurriculumTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform } from "lucide-react";
+import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, GraduationCap } from "lucide-react";
 
 const Index = () => {
   return (
@@ -74,6 +75,10 @@ const Index = () => {
             <TabsTrigger value="reference" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <BookOpen className="w-4 h-4" />
               Reference
+            </TabsTrigger>
+            <TabsTrigger value="curriculum" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <GraduationCap className="w-4 h-4" />
+              ET310 Curriculum
             </TabsTrigger>
           </TabsList>
 
@@ -182,6 +187,7 @@ const Index = () => {
               </div>
             </div>
           </TabsContent>
+          <TabsContent value="curriculum"><CurriculumTab /></TabsContent>
         </Tabs>
       </main>
 
