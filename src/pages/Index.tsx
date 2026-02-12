@@ -2,8 +2,9 @@ import SolverHeader from "@/components/SolverHeader";
 import DCAnalysisTab from "@/components/DCAnalysisTab";
 import TransientTab from "@/components/TransientTab";
 import ACPhasorTab from "@/components/ACPhasorTab";
+import QuickSolverTab from "@/components/QuickSolverTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Timer, Waves, BookOpen } from "lucide-react";
+import { Zap, Timer, Waves, BookOpen, Calculator } from "lucide-react";
 
 const Index = () => {
   return (
@@ -23,8 +24,8 @@ const Index = () => {
               <span className="text-primary glow-text"> verified math</span>
             </h1>
             <p className="text-muted-foreground text-sm sm:text-base max-w-xl leading-relaxed">
-              DC nodal analysis, first-order transients, AC phasor domain — with step-by-step derivations, 
-              MNA matrix output, and automated power balance verification. Built on the Nilsson & Riedel framework.
+              Input your values, get instant step-by-step solutions. Ohm's Law, voltage/current dividers, 
+              series/parallel, Thévenin/Norton, transients, AC phasors — with power balance verification.
             </p>
           </div>
         </div>
@@ -32,8 +33,12 @@ const Index = () => {
 
       {/* Solver Tabs */}
       <main className="container px-4 py-8">
-        <Tabs defaultValue="dc" className="space-y-6">
+        <Tabs defaultValue="quick" className="space-y-6">
           <TabsList className="bg-card border border-border h-auto p-1 flex-wrap">
+            <TabsTrigger value="quick" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Calculator className="w-4 h-4" />
+              Quick Solve
+            </TabsTrigger>
             <TabsTrigger value="dc" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Zap className="w-4 h-4" />
               <span className="hidden sm:inline">DC</span> Nodal
@@ -52,6 +57,7 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
+          <TabsContent value="quick"><QuickSolverTab /></TabsContent>
           <TabsContent value="dc"><DCAnalysisTab /></TabsContent>
           <TabsContent value="transient"><TransientTab /></TabsContent>
           <TabsContent value="ac"><ACPhasorTab /></TabsContent>
@@ -69,6 +75,19 @@ const Index = () => {
                     <p>Power: P = VI = I²R = V²/R</p>
                     <p>Series: R_eq = ΣR_i</p>
                     <p>Parallel: 1/R_eq = Σ(1/R_i)</p>
+                    <p>Voltage Divider: V_out = V_s × R₂/(R₁+R₂)</p>
+                    <p>Current Divider: I₁ = I_s × R₂/(R₁+R₂)</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-primary">Network Theorems</h4>
+                  <div className="space-y-1 font-mono text-xs text-equation">
+                    <p>Thévenin: V_th = V_oc, R_th = V_oc/I_sc</p>
+                    <p>Norton: I_N = I_sc, R_N = R_th</p>
+                    <p>Max Power: R_L = R_th</p>
+                    <p>P_max = V_th²/(4R_th)</p>
+                    <p>Superposition: analyze one source at a time</p>
                   </div>
                 </div>
 
@@ -92,6 +111,9 @@ const Index = () => {
                     <p>Z_C = 1/(jωC) = -j/(ωC)</p>
                     <p>V = IZ (Ohm's Law for phasors)</p>
                     <p>ω = 2πf</p>
+                    <p>P = VIcosθ (real power)</p>
+                    <p>Q = VIsinθ (reactive power)</p>
+                    <p>S = VI (apparent power)</p>
                   </div>
                 </div>
 
@@ -106,6 +128,18 @@ const Index = () => {
                     <p>Capacitor: V(s) = I(s)/(sC) + v(0⁻)/s</p>
                   </div>
                 </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-primary">Switch Analysis (t&lt;0 → t&gt;0)</h4>
+                  <div className="space-y-1 font-mono text-xs text-equation">
+                    <p>t&lt;0: Capacitor → open, Inductor → short</p>
+                    <p>Find initial: V₀ = v_C(0⁻), I₀ = i_L(0⁻)</p>
+                    <p>t=0⁺: Cap → V source (V₀), Ind → I source (I₀)</p>
+                    <p>t&gt;0: Solve with initial conditions</p>
+                    <p>Continuity: v_C(0⁻) = v_C(0⁺)</p>
+                    <p>Continuity: i_L(0⁻) = i_L(0⁺)</p>
+                  </div>
+                </div>
               </div>
             </div>
           </TabsContent>
@@ -116,7 +150,7 @@ const Index = () => {
       <footer className="border-t border-border py-6 mt-8">
         <div className="container px-4 flex items-center justify-between text-xs text-muted-foreground">
           <span>ET310 Circuit Solver — Nilsson & Riedel Framework</span>
-          <span className="font-mono">v1.0</span>
+          <span className="font-mono">v2.0</span>
         </div>
       </footer>
     </div>

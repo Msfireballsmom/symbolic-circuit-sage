@@ -1,0 +1,241 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  solveOhmsLaw, solveSeriesParallel, solveVoltageDivider,
+  solveCurrentDivider, solveThevenin, solvePower, QuickResult,
+} from "@/lib/circuit-solver";
+import StepDisplay from "./StepDisplay";
+import { Calculator, Plus, Trash2, Play } from "lucide-react";
+
+type SolverType = 'ohms_law' | 'series_parallel' | 'voltage_divider' | 'current_divider' | 'thevenin' | 'power';
+
+const QuickSolverTab = () => {
+  const [solverType, setSolverType] = useState<SolverType>('ohms_law');
+  const [result, setResult] = useState<QuickResult | null>(null);
+
+  // Ohm's law state
+  const [ohmV, setOhmV] = useState('');
+  const [ohmI, setOhmI] = useState('');
+  const [ohmR, setOhmR] = useState('');
+
+  // Series/Parallel state
+  const [resistors, setResistors] = useState<string[]>(['1000', '2000']);
+  const [spConfig, setSpConfig] = useState<'series' | 'parallel'>('series');
+
+  // Voltage divider state
+  const [vdVs, setVdVs] = useState('12');
+  const [vdR1, setVdR1] = useState('1000');
+  const [vdR2, setVdR2] = useState('2000');
+
+  // Current divider state
+  const [cdIs, setCdIs] = useState('0.01');
+  const [cdR1, setCdR1] = useState('1000');
+  const [cdR2, setCdR2] = useState('2000');
+
+  // Thevenin state
+  const [thVoc, setThVoc] = useState('12');
+  const [thIsc, setThIsc] = useState('0.003');
+
+  const solve = () => {
+    switch (solverType) {
+      case 'ohms_law':
+        setResult(solveOhmsLaw({
+          V: ohmV ? parseFloat(ohmV) : undefined,
+          I: ohmI ? parseFloat(ohmI) : undefined,
+          R: ohmR ? parseFloat(ohmR) : undefined,
+        }));
+        break;
+      case 'series_parallel':
+        setResult(solveSeriesParallel(resistors.map(r => parseFloat(r) || 0), spConfig));
+        break;
+      case 'voltage_divider':
+        setResult(solveVoltageDivider(parseFloat(vdVs), parseFloat(vdR1), parseFloat(vdR2)));
+        break;
+      case 'current_divider':
+        setResult(solveCurrentDivider(parseFloat(cdIs), parseFloat(cdR1), parseFloat(cdR2)));
+        break;
+      case 'thevenin':
+        setResult(solveThevenin(parseFloat(thVoc), parseFloat(thIsc)));
+        break;
+      case 'power':
+        setResult(solvePower({
+          V: ohmV ? parseFloat(ohmV) : undefined,
+          I: ohmI ? parseFloat(ohmI) : undefined,
+          R: ohmR ? parseFloat(ohmR) : undefined,
+        }));
+        break;
+    }
+  };
+
+  const renderInputs = () => {
+    switch (solverType) {
+      case 'ohms_law':
+      case 'power':
+        return (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">Enter any 2 of 3 values. Leave the unknown blank.</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">Voltage (V)</Label>
+                <Input type="number" value={ohmV} onChange={e => setOhmV(e.target.value)} placeholder="?" className="h-8 text-xs font-mono" />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Current (A)</Label>
+                <Input type="number" value={ohmI} onChange={e => setOhmI(e.target.value)} placeholder="?" className="h-8 text-xs font-mono" />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Resistance (Ω)</Label>
+                <Input type="number" value={ohmR} onChange={e => setOhmR(e.target.value)} placeholder="?" className="h-8 text-xs font-mono" />
+              </div>
+            </div>
+          </div>
+        );
+      case 'series_parallel':
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Select value={spConfig} onValueChange={(v) => setSpConfig(v as 'series' | 'parallel')}>
+                <SelectTrigger className="h-8 text-xs w-32"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="series">Series</SelectItem>
+                  <SelectItem value="parallel">Parallel</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setResistors([...resistors, '1000'])}>
+                <Plus className="w-3 h-3" /> Add R
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {resistors.map((r, i) => (
+                <div key={i} className="flex items-end gap-1">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">R{i + 1} (Ω)</Label>
+                    <Input type="number" value={r} onChange={e => { const n = [...resistors]; n[i] = e.target.value; setResistors(n); }} className="h-8 text-xs font-mono w-24" />
+                  </div>
+                  {resistors.length > 2 && (
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive/70" onClick={() => setResistors(resistors.filter((_, j) => j !== i))}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case 'voltage_divider':
+        return (
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs text-muted-foreground">V_source (V)</Label>
+              <Input type="number" value={vdVs} onChange={e => setVdVs(e.target.value)} className="h-8 text-xs font-mono" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">R₁ (Ω) — top</Label>
+              <Input type="number" value={vdR1} onChange={e => setVdR1(e.target.value)} className="h-8 text-xs font-mono" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">R₂ (Ω) — bottom</Label>
+              <Input type="number" value={vdR2} onChange={e => setVdR2(e.target.value)} className="h-8 text-xs font-mono" />
+            </div>
+          </div>
+        );
+      case 'current_divider':
+        return (
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs text-muted-foreground">I_source (A)</Label>
+              <Input type="number" value={cdIs} onChange={e => setCdIs(e.target.value)} className="h-8 text-xs font-mono" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">R₁ (Ω)</Label>
+              <Input type="number" value={cdR1} onChange={e => setCdR1(e.target.value)} className="h-8 text-xs font-mono" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">R₂ (Ω)</Label>
+              <Input type="number" value={cdR2} onChange={e => setCdR2(e.target.value)} className="h-8 text-xs font-mono" />
+            </div>
+          </div>
+        );
+      case 'thevenin':
+        return (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-muted-foreground">V_oc (Open Circuit V)</Label>
+              <Input type="number" value={thVoc} onChange={e => setThVoc(e.target.value)} className="h-8 text-xs font-mono" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">I_sc (Short Circuit A)</Label>
+              <Input type="number" value={thIsc} onChange={e => setThIsc(e.target.value)} className="h-8 text-xs font-mono" />
+            </div>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="p-4 rounded-lg bg-card border border-border">
+        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Calculator className="w-4 h-4 text-primary" />
+          Quick Homework Solver
+        </h3>
+
+        <div className="mb-4">
+          <Label className="text-xs text-muted-foreground mb-1.5 block">Problem Type</Label>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { val: 'ohms_law', label: "Ohm's Law" },
+              { val: 'voltage_divider', label: 'Voltage Divider' },
+              { val: 'current_divider', label: 'Current Divider' },
+              { val: 'series_parallel', label: 'Series / Parallel R' },
+              { val: 'thevenin', label: 'Thévenin / Norton' },
+              { val: 'power', label: 'Power Analysis' },
+            ].map(({ val, label }) => (
+              <button
+                key={val}
+                onClick={() => { setSolverType(val as SolverType); setResult(null); }}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+                  solverType === val
+                    ? 'bg-primary/10 border-primary/30 text-primary'
+                    : 'bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:border-primary/20'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {renderInputs()}
+
+        <Button onClick={solve} className="mt-4 gap-2 w-full sm:w-auto">
+          <Play className="w-4 h-4" /> Solve
+        </Button>
+      </div>
+
+      {result && (
+        <div className="space-y-4 animate-slide-up">
+          <div className="p-4 rounded-lg bg-card border border-border">
+            <h3 className="text-sm font-semibold text-foreground mb-3">{result.title}</h3>
+            <div className="flex flex-wrap gap-3 mb-4">
+              {result.results.map((r, i) => (
+                <div key={i} className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
+                  <span className="text-xs text-muted-foreground">{r.label}</span>
+                  <p className="text-lg font-mono font-bold text-primary glow-text">
+                    {r.value} <span className="text-xs text-muted-foreground">{r.unit}</span>
+                  </p>
+                </div>
+              ))}
+            </div>
+            <StepDisplay steps={result.steps} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default QuickSolverTab;

@@ -368,3 +368,182 @@ export function solveAC(input: ACInput): ACResult {
     steps,
   };
 }
+
+// ============ QUICK SOLVERS ============
+
+export interface QuickResult {
+  title: string;
+  results: { label: string; value: string; unit: string }[];
+  steps: string[];
+}
+
+export function solveSeriesParallel(resistors: number[], config: 'series' | 'parallel'): QuickResult {
+  const steps: string[] = [];
+  let Req: number;
+
+  if (config === 'series') {
+    Req = resistors.reduce((a, b) => a + b, 0);
+    steps.push(`Series combination: R_eq = ${resistors.map(r => `${r}`).join(' + ')}`);
+    steps.push(`R_eq = ${Req} Ω`);
+  } else {
+    const sumInv = resistors.reduce((a, r) => a + 1 / r, 0);
+    Req = 1 / sumInv;
+    steps.push(`Parallel combination: 1/R_eq = ${resistors.map(r => `1/${r}`).join(' + ')}`);
+    steps.push(`1/R_eq = ${sumInv.toFixed(6)}`);
+    steps.push(`R_eq = ${Req.toFixed(4)} Ω`);
+  }
+
+  return {
+    title: `${config === 'series' ? 'Series' : 'Parallel'} Resistance`,
+    results: [{ label: 'R_eq', value: Req.toFixed(4), unit: 'Ω' }],
+    steps,
+  };
+}
+
+export function solveOhmsLaw(known: { V?: number; I?: number; R?: number }): QuickResult {
+  const steps: string[] = [];
+  let V = known.V, I = known.I, R = known.R;
+
+  if (V !== undefined && R !== undefined) {
+    I = V / R;
+    steps.push(`Given: V = ${V}V, R = ${R}Ω`);
+    steps.push(`Ohm's Law: I = V/R = ${V}/${R} = ${I.toFixed(6)}A`);
+  } else if (V !== undefined && I !== undefined) {
+    R = V / I;
+    steps.push(`Given: V = ${V}V, I = ${I}A`);
+    steps.push(`Ohm's Law: R = V/I = ${V}/${I} = ${R.toFixed(4)}Ω`);
+  } else if (I !== undefined && R !== undefined) {
+    V = I * R;
+    steps.push(`Given: I = ${I}A, R = ${R}Ω`);
+    steps.push(`Ohm's Law: V = IR = ${I}×${R} = ${V.toFixed(4)}V`);
+  } else {
+    return { title: "Ohm's Law", results: [], steps: ['Error: Provide exactly 2 of V, I, R'] };
+  }
+
+  const P = V! * I!;
+  steps.push(`Power: P = VI = ${V!.toFixed(4)} × ${I!.toFixed(6)} = ${P.toFixed(6)}W`);
+
+  return {
+    title: "Ohm's Law",
+    results: [
+      { label: 'V', value: V!.toFixed(4), unit: 'V' },
+      { label: 'I', value: I!.toFixed(6), unit: 'A' },
+      { label: 'R', value: R!.toFixed(4), unit: 'Ω' },
+      { label: 'P', value: P.toFixed(6), unit: 'W' },
+    ],
+    steps,
+  };
+}
+
+export function solveVoltageDivider(Vs: number, R1: number, R2: number): QuickResult {
+  const steps: string[] = [];
+  const Vout = Vs * R2 / (R1 + R2);
+  const I = Vs / (R1 + R2);
+  const P1 = I * I * R1;
+  const P2 = I * I * R2;
+
+  steps.push(`Voltage Divider: V_out = V_s × R₂ / (R₁ + R₂)`);
+  steps.push(`V_out = ${Vs} × ${R2} / (${R1} + ${R2})`);
+  steps.push(`V_out = ${Vs} × ${R2} / ${R1 + R2}`);
+  steps.push(`V_out = ${Vout.toFixed(4)}V`);
+  steps.push(`Total current: I = V_s / (R₁ + R₂) = ${Vs} / ${R1 + R2} = ${I.toFixed(6)}A`);
+  steps.push(`V_R1 = I × R₁ = ${(I * R1).toFixed(4)}V`);
+  steps.push(`V_R2 = I × R₂ = ${Vout.toFixed(4)}V (= V_out)`);
+  steps.push(`Power: P_R1 = ${P1.toFixed(6)}W, P_R2 = ${P2.toFixed(6)}W`);
+  steps.push(`✓ KVL check: V_R1 + V_R2 = ${(I * R1).toFixed(4)} + ${Vout.toFixed(4)} = ${(I * R1 + Vout).toFixed(4)}V ≈ ${Vs}V`);
+
+  return {
+    title: 'Voltage Divider',
+    results: [
+      { label: 'V_out', value: Vout.toFixed(4), unit: 'V' },
+      { label: 'I', value: I.toFixed(6), unit: 'A' },
+      { label: 'V_R1', value: (I * R1).toFixed(4), unit: 'V' },
+      { label: 'P_total', value: (P1 + P2).toFixed(6), unit: 'W' },
+    ],
+    steps,
+  };
+}
+
+export function solveCurrentDivider(Is: number, R1: number, R2: number): QuickResult {
+  const steps: string[] = [];
+  const I1 = Is * R2 / (R1 + R2);
+  const I2 = Is * R1 / (R1 + R2);
+  const Req = (R1 * R2) / (R1 + R2);
+  const V = Is * Req;
+
+  steps.push(`Current Divider: Two resistors in parallel with total current I_s = ${Is}A`);
+  steps.push(`R_eq = R₁R₂/(R₁+R₂) = ${R1}×${R2}/(${R1}+${R2}) = ${Req.toFixed(4)}Ω`);
+  steps.push(`V = I_s × R_eq = ${Is} × ${Req.toFixed(4)} = ${V.toFixed(4)}V`);
+  steps.push(`I₁ = I_s × R₂/(R₁+R₂) = ${Is} × ${R2}/${R1 + R2} = ${I1.toFixed(6)}A`);
+  steps.push(`I₂ = I_s × R₁/(R₁+R₂) = ${Is} × ${R1}/${R1 + R2} = ${I2.toFixed(6)}A`);
+  steps.push(`✓ KCL check: I₁ + I₂ = ${I1.toFixed(6)} + ${I2.toFixed(6)} = ${(I1 + I2).toFixed(6)}A ≈ ${Is}A`);
+
+  return {
+    title: 'Current Divider',
+    results: [
+      { label: 'I₁', value: I1.toFixed(6), unit: 'A' },
+      { label: 'I₂', value: I2.toFixed(6), unit: 'A' },
+      { label: 'V', value: V.toFixed(4), unit: 'V' },
+      { label: 'R_eq', value: Req.toFixed(4), unit: 'Ω' },
+    ],
+    steps,
+  };
+}
+
+export function solveThevenin(Voc: number, Isc: number): QuickResult {
+  const steps: string[] = [];
+  const Rth = Voc / Isc;
+  const In = Isc; // Norton current = short circuit current
+
+  steps.push(`Thévenin Equivalent:`);
+  steps.push(`  V_th = V_oc (open-circuit voltage) = ${Voc}V`);
+  steps.push(`  I_sc (short-circuit current) = ${Isc}A`);
+  steps.push(`  R_th = V_oc / I_sc = ${Voc} / ${Isc} = ${Rth.toFixed(4)}Ω`);
+  steps.push(``);
+  steps.push(`Norton Equivalent:`);
+  steps.push(`  I_N = I_sc = ${In.toFixed(6)}A`);
+  steps.push(`  R_N = R_th = ${Rth.toFixed(4)}Ω`);
+  steps.push(``);
+  steps.push(`Maximum Power Transfer:`);
+  const Pmax = (Voc * Voc) / (4 * Rth);
+  steps.push(`  R_L = R_th = ${Rth.toFixed(4)}Ω for max power`);
+  steps.push(`  P_max = V_th² / (4R_th) = ${Voc}² / (4×${Rth.toFixed(4)}) = ${Pmax.toFixed(6)}W`);
+
+  return {
+    title: 'Thévenin / Norton Equivalent',
+    results: [
+      { label: 'V_th', value: Voc.toFixed(4), unit: 'V' },
+      { label: 'R_th', value: Rth.toFixed(4), unit: 'Ω' },
+      { label: 'I_N', value: In.toFixed(6), unit: 'A' },
+      { label: 'P_max', value: Pmax.toFixed(6), unit: 'W' },
+    ],
+    steps,
+  };
+}
+
+export function solvePower(known: { V?: number; I?: number; R?: number }): QuickResult {
+  const ohm = solveOhmsLaw(known);
+  if (ohm.results.length === 0) return ohm;
+
+  const V = parseFloat(ohm.results.find(r => r.label === 'V')!.value);
+  const I = parseFloat(ohm.results.find(r => r.label === 'I')!.value);
+  const R = parseFloat(ohm.results.find(r => r.label === 'R')!.value);
+
+  const steps = [...ohm.steps];
+  steps.push(``);
+  steps.push(`Power calculations (3 equivalent forms):`);
+  steps.push(`  P = V × I = ${V.toFixed(4)} × ${I.toFixed(6)} = ${(V * I).toFixed(6)}W`);
+  steps.push(`  P = I²R = ${I.toFixed(6)}² × ${R.toFixed(4)} = ${(I * I * R).toFixed(6)}W`);
+  steps.push(`  P = V²/R = ${V.toFixed(4)}² / ${R.toFixed(4)} = ${(V * V / R).toFixed(6)}W`);
+
+  return {
+    title: 'Power Analysis',
+    results: [
+      ...ohm.results,
+      { label: 'P (VI)', value: (V * I).toFixed(6), unit: 'W' },
+      { label: 'P (I²R)', value: (I * I * R).toFixed(6), unit: 'W' },
+      { label: 'P (V²/R)', value: (V * V / R).toFixed(6), unit: 'W' },
+    ],
+    steps,
+  };
+}
