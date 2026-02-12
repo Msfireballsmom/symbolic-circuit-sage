@@ -8,8 +8,9 @@ import LaplaceTab from "@/components/LaplaceTab";
 import FourierTab from "@/components/FourierTab";
 import QuickSolverTab from "@/components/QuickSolverTab";
 import CurriculumTab from "@/components/CurriculumTab";
+import BodePlotTab from "@/components/BodePlotTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, GraduationCap } from "lucide-react";
+import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, GraduationCap, BarChart3 } from "lucide-react";
 
 const Index = () => {
   return (
@@ -72,6 +73,10 @@ const Index = () => {
               <AudioWaveform className="w-4 h-4" />
               Fourier
             </TabsTrigger>
+            <TabsTrigger value="bode" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <BarChart3 className="w-4 h-4" />
+              Bode Plot
+            </TabsTrigger>
             <TabsTrigger value="reference" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <BookOpen className="w-4 h-4" />
               Reference
@@ -90,6 +95,7 @@ const Index = () => {
           <TabsContent value="ac"><ACPhasorTab /></TabsContent>
           <TabsContent value="laplace"><LaplaceTab /></TabsContent>
           <TabsContent value="fourier"><FourierTab /></TabsContent>
+          <TabsContent value="bode"><BodePlotTab /></TabsContent>
           <TabsContent value="reference">
             <div className="p-6 rounded-lg bg-card border border-border space-y-6">
               <h3 className="text-lg font-bold text-foreground">Quick Reference — ET310 Formulas</h3>
@@ -183,6 +189,80 @@ const Index = () => {
                     <p>Half-wave: even harmonics = 0</p>
                     <p>Parseval: P = a₀² + ½Σ(aₙ²+bₙ²)</p>
                   </div>
+                </div>
+              </div>
+
+              {/* Circuit Reading Guide */}
+              <div className="border-t border-border pt-6">
+                <h3 className="text-lg font-bold text-foreground mb-4">📐 How to Read Circuit Diagrams</h3>
+                
+                <div className="grid sm:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-primary">Schematic Symbols</h4>
+                    <div className="space-y-1.5 text-xs text-muted-foreground">
+                      <p><span className="font-mono text-foreground">─/\/\/─</span> Resistor (R, in Ω)</p>
+                      <p><span className="font-mono text-foreground">─||─</span> Capacitor (C, in F)</p>
+                      <p><span className="font-mono text-foreground">─⌇⌇⌇─</span> Inductor (L, in H)</p>
+                      <p><span className="font-mono text-foreground">─(+|−)─</span> Voltage Source (V_s)</p>
+                      <p><span className="font-mono text-foreground">─(↑)─</span> Current Source (I_s)</p>
+                      <p><span className="font-mono text-foreground">⏚</span> Ground (reference node, 0V)</p>
+                      <p><span className="font-mono text-foreground">●</span> Connection dot (wires connect)</p>
+                      <p><span className="font-mono text-foreground">╳</span> Crossing without dot = NO connection</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-primary">Step-by-Step Reading Method</h4>
+                    <div className="space-y-1.5 text-xs text-muted-foreground">
+                      <p><span className="text-primary font-bold">1.</span> Identify every component symbol and its value</p>
+                      <p><span className="text-primary font-bold">2.</span> Mark ALL nodes (junctions where 3+ wires meet)</p>
+                      <p><span className="text-primary font-bold">3.</span> Choose a ground node (reference = 0V)</p>
+                      <p><span className="text-primary font-bold">4.</span> Note source polarities (+/− for V, arrow for I)</p>
+                      <p><span className="text-primary font-bold">5.</span> Determine series vs parallel connections</p>
+                      <p><span className="text-primary font-bold">6.</span> Pick analysis method (Nodal, Mesh, or Thévenin)</p>
+                      <p><span className="text-primary font-bold">7.</span> Write equations BEFORE plugging in numbers</p>
+                      <p><span className="text-primary font-bold">8.</span> Verify with power balance (ΣP = 0)</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-destructive">⚠ Common Mistakes to Avoid</h4>
+                    <div className="space-y-1.5 text-xs text-muted-foreground">
+                      <p>❌ Assuming crossing wires connect (need a dot!)</p>
+                      <p>❌ Forgetting to assign ground before solving</p>
+                      <p>❌ Mixing up source polarity (+ vs −)</p>
+                      <p>❌ Writing numbers before symbolic equations</p>
+                      <p>❌ Forgetting passive sign convention</p>
+                      <p>❌ Not checking units (kΩ vs Ω, μF vs F)</p>
+                      <p>❌ Skipping power balance verification</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-primary">Visual Types in ET310</h4>
+                    <div className="space-y-1.5 text-xs text-muted-foreground">
+                      <p>📋 <span className="text-foreground font-medium">Circuit schematics</span> — component diagrams</p>
+                      <p>📈 <span className="text-foreground font-medium">Time-domain plots</span> — v(t) or i(t) vs time</p>
+                      <p>📐 <span className="text-foreground font-medium">Phasor diagrams</span> — AC magnitude & phase vectors</p>
+                      <p>📊 <span className="text-foreground font-medium">Bode plots</span> — |H| and ∠H vs frequency</p>
+                      <p>🔄 <span className="text-foreground font-medium">Pole-zero maps</span> — s-plane stability analysis</p>
+                      <p>📉 <span className="text-foreground font-medium">Harmonic spectra</span> — Fourier coefficient magnitudes</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Frequency Response Reference */}
+              <div className="border-t border-border pt-6">
+                <h3 className="text-sm font-semibold text-primary mb-2">Frequency Response / Bode Plots</h3>
+                <div className="space-y-1 font-mono text-xs text-equation">
+                  <p>RC Low-Pass: H(jω) = 1/(1+jωRC), f_c = 1/(2πRC)</p>
+                  <p>RC High-Pass: H(jω) = jωRC/(1+jωRC)</p>
+                  <p>At f_c: |H| = -3.01 dB (half-power point)</p>
+                  <p>Roll-off: -20 dB/decade (1st order)</p>
+                  <p>RLC resonance: f₀ = 1/(2π√LC)</p>
+                  <p>Quality factor: Q = f₀/BW = (1/R)√(L/C)</p>
+                  <p>|H| in dB = 20·log₁₀(|H|)</p>
                 </div>
               </div>
             </div>
