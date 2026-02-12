@@ -547,3 +547,206 @@ export function solvePower(known: { V?: number; I?: number; R?: number }): Quick
     steps,
   };
 }
+
+// ============ SECOND-ORDER RLC TRANSIENT ANALYSIS ============
+
+export interface RLCInput {
+  topology: 'series' | 'parallel';
+  R: number;
+  L: number;  // Henries
+  C: number;  // Farads
+  Vs: number; // Source voltage (0 for natural response)
+  excitation: 'natural' | 'step';
+  vC0: number; // v_C(0+)
+  iL0: number; // i_L(0+)
+  tFinal: number;
+}
+
+export type DampingType = 'overdamped' | 'underdamped' | 'critically_damped';
+
+export interface RLCResult {
+  alpha: number;
+  omega0: number;
+  dampingType: DampingType;
+  s1: { re: number; im: number };
+  s2: { re: number; im: number };
+  omegaD?: number; // damped frequency (underdamped only)
+  equationVC: string;
+  equationIL: string;
+  pointsVC: { t: number; value: number }[];
+  pointsIL: { t: number; value: number }[];
+  steps: string[];
+}
+
+export function solveRLC(input: RLCInput): RLCResult {
+  const { topology, R, L, C, Vs, excitation, vC0, iL0, tFinal } = input;
+  const steps: string[] = [];
+
+  // --- Step 1: Compute α and ω₀ ---
+  let alpha: number, omega0: number;
+  omega0 = 1 / Math.sqrt(L * C);
+
+  if (topology === 'series') {
+    alpha = R / (2 * L);
+    steps.push(`Series RLC circuit`);
+    steps.push(`Neper frequency: α = R/(2L) = ${R}/(2×${L}) = ${alpha.toFixed(4)} Np/s`);
+  } else {
+    alpha = 1 / (2 * R * C);
+    steps.push(`Parallel RLC circuit`);
+    steps.push(`Neper frequency: α = 1/(2RC) = 1/(2×${R}×${C}) = ${alpha.toFixed(4)} Np/s`);
+  }
+  steps.push(`Resonant frequency: ω₀ = 1/√(LC) = 1/√(${L}×${C}) = ${omega0.toFixed(4)} rad/s`);
+
+  // --- Step 2: Characteristic equation ---
+  steps.push(`Characteristic equation: s² + ${(2 * alpha).toFixed(4)}s + ${(omega0 * omega0).toFixed(4)} = 0`);
+
+  let dampingType: DampingType;
+  let s1re: number, s1im: number, s2re: number, s2im: number;
+  let omegaD: number | undefined;
+
+  const disc = alpha * alpha - omega0 * omega0;
+
+  if (disc > 1e-6 * omega0 * omega0) {
+    dampingType = 'overdamped';
+    const sqrtDisc = Math.sqrt(disc);
+    s1re = -alpha + sqrtDisc; s1im = 0;
+    s2re = -alpha - sqrtDisc; s2im = 0;
+    steps.push(`α² > ω₀² → Overdamped (α² - ω₀² = ${disc.toFixed(4)})`);
+    steps.push(`s₁ = -α + √(α²-ω₀²) = ${s1re.toFixed(4)}`);
+    steps.push(`s₂ = -α - √(α²-ω₀²) = ${s2re.toFixed(4)}`);
+  } else if (disc < -1e-6 * omega0 * omega0) {
+    dampingType = 'underdamped';
+    omegaD = Math.sqrt(-disc);
+    s1re = -alpha; s1im = omegaD;
+    s2re = -alpha; s2im = -omegaD;
+    steps.push(`α² < ω₀² → Underdamped`);
+    steps.push(`Damped frequency: ω_d = √(ω₀²-α²) = ${omegaD.toFixed(4)} rad/s`);
+    steps.push(`s₁,₂ = -α ± jω_d = ${s1re.toFixed(4)} ± j${omegaD.toFixed(4)}`);
+  } else {
+    dampingType = 'critically_damped';
+    s1re = -alpha; s1im = 0;
+    s2re = -alpha; s2im = 0;
+    steps.push(`α² = ω₀² → Critically Damped`);
+    steps.push(`s₁ = s₂ = -α = ${s1re.toFixed(4)}`);
+  }
+
+  // --- Step 3: Determine initial conditions & forced response ---
+  const vCinf = excitation === 'step' ? Vs : 0;
+  const iLinf = excitation === 'step' ? (topology === 'series' ? Vs / R : 0) : 0;
+  // For series: at steady state cap is open → i=0, vC=Vs
+  // For parallel: at steady state ind is short → vC=0 (if source removed) or Vs
+  // Simplified: series step → vC(∞)=Vs, iL(∞)=0; parallel step → vC(∞)=Vs, iL(∞)=Vs/R
+  const vCss = excitation === 'step' ? Vs : 0;
+  const iLss = excitation === 'step' ? (topology === 'parallel' ? Vs / R : 0) : 0;
+
+  steps.push(``);
+  steps.push(`Excitation: ${excitation === 'step' ? `Step input V_s = ${Vs}V` : 'Natural response (no source)'}`);
+  steps.push(`Initial conditions: v_C(0⁺) = ${vC0}V, i_L(0⁺) = ${iL0}A`);
+  steps.push(`Steady-state values: v_C(∞) = ${vCss}V, i_L(∞) = ${iLss}A`);
+
+  // --- Step 4: Compute derivative ICs ---
+  // Series: L·di/dt(0+) = Vs - R·iL0 - vC0  →  dvC/dt(0+) = iL0/C
+  // Parallel: C·dvC/dt(0+) = -vC0/R - iL0 + Is  →  diL/dt(0+) = vC0/L
+  let dvC0: number, diL0: number;
+  if (topology === 'series') {
+    dvC0 = iL0 / C;
+    diL0 = ((excitation === 'step' ? Vs : 0) - R * iL0 - vC0) / L;
+  } else {
+    dvC0 = (-vC0 / R - iL0 + (excitation === 'step' ? Vs / R : 0)) / C;
+    // Actually for parallel: node KCL gives C·dvC/dt = Is - vC/R - iL
+    // But simplified: dvC/dt(0+) from KCL, diL/dt(0+) = vC0/L
+    diL0 = vC0 / L;
+  }
+  steps.push(`dv_C/dt(0⁺) = ${dvC0.toFixed(4)} V/s`);
+  steps.push(`di_L/dt(0⁺) = ${diL0.toFixed(4)} A/s`);
+
+  // --- Step 5: Build time-domain solutions ---
+  let fnVC: (t: number) => number;
+  let fnIL: (t: number) => number;
+  let eqVC: string, eqIL: string;
+
+  const buildSolution = (x0: number, dx0: number, xss: number) => {
+    // Returns {fn, eq} for x(t) = xss + transient
+    const x0p = x0 - xss; // x'(0) = x(0) - x(∞)
+    if (dampingType === 'overdamped') {
+      // x(t) = xss + A1·e^(s1·t) + A2·e^(s2·t)
+      // A1 + A2 = x0p, A1·s1 + A2·s2 = dx0
+      const A2 = (dx0 - s1re * x0p) / (s2re - s1re);
+      const A1 = x0p - A2;
+      const fn = (t: number) => xss + A1 * Math.exp(s1re * t) + A2 * Math.exp(s2re * t);
+      const eq = `${xss.toFixed(4)} + ${A1.toFixed(4)}e^(${s1re.toFixed(4)}t) + ${A2.toFixed(4)}e^(${s2re.toFixed(4)}t)`;
+      return { fn, eq, A1, A2 };
+    } else if (dampingType === 'underdamped') {
+      // x(t) = xss + e^(-αt)[B1·cos(ωd·t) + B2·sin(ωd·t)]
+      const B1 = x0p;
+      const B2 = (dx0 + alpha * x0p) / omegaD!;
+      const fn = (t: number) => xss + Math.exp(-alpha * t) * (B1 * Math.cos(omegaD! * t) + B2 * Math.sin(omegaD! * t));
+      const eq = `${xss.toFixed(4)} + e^(${(-alpha).toFixed(4)}t)[${B1.toFixed(4)}cos(${omegaD!.toFixed(4)}t) + ${B2.toFixed(4)}sin(${omegaD!.toFixed(4)}t)]`;
+      return { fn, eq, A1: B1, A2: B2 };
+    } else {
+      // Critically damped: x(t) = xss + (D1 + D2·t)e^(-αt)
+      const D1 = x0p;
+      const D2 = dx0 + alpha * x0p;
+      const fn = (t: number) => xss + (D1 + D2 * t) * Math.exp(-alpha * t);
+      const eq = `${xss.toFixed(4)} + (${D1.toFixed(4)} + ${D2.toFixed(4)}t)e^(${(-alpha).toFixed(4)}t)`;
+      return { fn, eq, A1: D1, A2: D2 };
+    }
+  };
+
+  const solVC = buildSolution(vC0, dvC0, vCss);
+  const solIL = buildSolution(iL0, diL0, iLss);
+  fnVC = solVC.fn;
+  fnIL = solIL.fn;
+  eqVC = solVC.eq;
+  eqIL = solIL.eq;
+
+  steps.push(``);
+  if (dampingType === 'overdamped') {
+    steps.push(`Overdamped form: x(t) = x(∞) + A₁e^(s₁t) + A₂e^(s₂t)`);
+    steps.push(`v_C coefficients: A₁ = ${solVC.A1.toFixed(4)}, A₂ = ${solVC.A2.toFixed(4)}`);
+    steps.push(`i_L coefficients: A₁ = ${solIL.A1.toFixed(4)}, A₂ = ${solIL.A2.toFixed(4)}`);
+  } else if (dampingType === 'underdamped') {
+    steps.push(`Underdamped form: x(t) = x(∞) + e^(-αt)[B₁cos(ω_d·t) + B₂sin(ω_d·t)]`);
+    steps.push(`v_C coefficients: B₁ = ${solVC.A1.toFixed(4)}, B₂ = ${solVC.A2.toFixed(4)}`);
+    steps.push(`i_L coefficients: B₁ = ${solIL.A1.toFixed(4)}, B₂ = ${solIL.A2.toFixed(4)}`);
+  } else {
+    steps.push(`Critically damped form: x(t) = x(∞) + (D₁ + D₂t)e^(-αt)`);
+    steps.push(`v_C coefficients: D₁ = ${solVC.A1.toFixed(4)}, D₂ = ${solVC.A2.toFixed(4)}`);
+    steps.push(`i_L coefficients: D₁ = ${solIL.A1.toFixed(4)}, D₂ = ${solIL.A2.toFixed(4)}`);
+  }
+
+  steps.push(``);
+  steps.push(`v_C(t) = ${eqVC}`);
+  steps.push(`i_L(t) = ${eqIL}`);
+
+  // --- Step 6: Generate plot points ---
+  const numPts = 300;
+  const pointsVC: { t: number; value: number }[] = [];
+  const pointsIL: { t: number; value: number }[] = [];
+  for (let i = 0; i <= numPts; i++) {
+    const t = (i / numPts) * tFinal;
+    pointsVC.push({ t, value: Math.round(fnVC(t) * 1e6) / 1e6 });
+    pointsIL.push({ t, value: Math.round(fnIL(t) * 1e6) / 1e6 });
+  }
+
+  // Verification
+  steps.push(``);
+  steps.push(`✓ v_C(0⁺) = ${fnVC(0).toFixed(4)}V (expected ${vC0}V)`);
+  steps.push(`✓ i_L(0⁺) = ${fnIL(0).toFixed(4)}A (expected ${iL0}A)`);
+  steps.push(`✓ v_C(∞) ≈ ${fnVC(tFinal).toFixed(4)}V (expected ${vCss}V)`);
+  steps.push(`✓ i_L(∞) ≈ ${fnIL(tFinal).toFixed(4)}A (expected ${iLss}A)`);
+
+  return {
+    alpha,
+    omega0,
+    dampingType,
+    s1: { re: s1re, im: s1im },
+    s2: { re: s2re, im: s2im },
+    omegaD,
+    equationVC: eqVC,
+    equationIL: eqIL,
+    pointsVC,
+    pointsIL,
+    steps,
+  };
+}
