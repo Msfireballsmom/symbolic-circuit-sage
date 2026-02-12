@@ -10,7 +10,7 @@ import {
 import StepDisplay from "./StepDisplay";
 import { Calculator, Plus, Trash2, Play } from "lucide-react";
 
-type SolverType = 'ohms_law' | 'series_parallel' | 'voltage_divider' | 'current_divider' | 'thevenin' | 'power';
+type SolverType = 'ohms_law' | 'series_parallel' | 'voltage_divider' | 'current_divider' | 'thevenin' | 'power' | 'superposition';
 
 const QuickSolverTab = () => {
   const [solverType, setSolverType] = useState<SolverType>('ohms_law');
@@ -38,6 +38,16 @@ const QuickSolverTab = () => {
   // Thevenin state
   const [thVoc, setThVoc] = useState('12');
   const [thIsc, setThIsc] = useState('0.003');
+
+  // Superposition state
+  const [spSources, setSpSources] = useState<{ name: string; value: string; unit: string }[]>([
+    { name: 'V1', value: '12', unit: 'V' },
+    { name: 'V2', value: '8', unit: 'V' },
+  ]);
+  const [spContributions, setSpContributions] = useState<{ source: string; contribution: string }[]>([
+    { source: 'V1', contribution: '0.004' },
+    { source: 'V2', contribution: '0.002' },
+  ]);
 
   const solve = () => {
     switch (solverType) {
@@ -67,6 +77,51 @@ const QuickSolverTab = () => {
           R: ohmR ? parseFloat(ohmR) : undefined,
         }));
         break;
+      case 'superposition': {
+        const steps: string[] = [];
+        steps.push(`═══════════════════════════════════════`);
+        steps.push(`SUPERPOSITION THEOREM`);
+        steps.push(`═══════════════════════════════════════`);
+        steps.push(``);
+        steps.push(`Principle: In a linear circuit with multiple independent sources,`);
+        steps.push(`the response at any element equals the algebraic sum of responses`);
+        steps.push(`caused by each source acting alone (others deactivated).`);
+        steps.push(``);
+        steps.push(`Deactivation rules:`);
+        steps.push(`  • Voltage source → replace with short circuit (wire)`);
+        steps.push(`  • Current source → replace with open circuit (break)`);
+        steps.push(``);
+
+        let total = 0;
+        spSources.forEach((src, i) => {
+          const contribution = parseFloat(spContributions[i]?.contribution || '0');
+          steps.push(`STEP ${i + 1}: ${src.name} = ${src.value}${src.unit} acting alone`);
+          steps.push(`  All other sources deactivated`);
+          steps.push(`  Contribution to response: ${contribution}`);
+          steps.push(``);
+          total += contribution;
+        });
+
+        steps.push(`FINAL STEP: Superposition`);
+        steps.push(`  Total response = ${spContributions.map((c, i) => `${spSources[i].name}_contribution`).join(' + ')}`);
+        steps.push(`  Total = ${spContributions.map(c => c.contribution).join(' + ')} = ${total}`);
+        steps.push(``);
+        steps.push(`✓ Superposition principle applied successfully`);
+
+        setResult({
+          title: 'Superposition Theorem',
+          results: [
+            { label: 'Total Response', value: total.toString(), unit: '' },
+            ...spContributions.map((c, i) => ({
+              label: `From ${spSources[i].name}`,
+              value: c.contribution,
+              unit: '',
+            })),
+          ],
+          steps,
+        });
+        break;
+      }
     }
   };
 
@@ -172,6 +227,59 @@ const QuickSolverTab = () => {
             </div>
           </div>
         );
+      case 'superposition':
+        return (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Enter each source and the contribution it makes to the desired response when acting alone.
+            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => {
+                const n = spSources.length + 1;
+                setSpSources([...spSources, { name: `V${n}`, value: '0', unit: 'V' }]);
+                setSpContributions([...spContributions, { source: `V${n}`, contribution: '0' }]);
+              }}>
+                <Plus className="w-3 h-3" /> Add Source
+              </Button>
+            </div>
+            {spSources.map((src, i) => (
+              <div key={i} className="flex items-end gap-2 p-2 rounded-md bg-muted/50 border border-border">
+                <div className="w-20">
+                  <Label className="text-xs text-muted-foreground">Name</Label>
+                  <Input value={src.name} onChange={e => {
+                    const updated = [...spSources]; updated[i] = { ...updated[i], name: e.target.value }; setSpSources(updated);
+                  }} className="h-8 text-xs font-mono" />
+                </div>
+                <div className="w-20">
+                  <Label className="text-xs text-muted-foreground">Value</Label>
+                  <Input value={src.value} onChange={e => {
+                    const updated = [...spSources]; updated[i] = { ...updated[i], value: e.target.value }; setSpSources(updated);
+                  }} className="h-8 text-xs font-mono" />
+                </div>
+                <div className="w-16">
+                  <Label className="text-xs text-muted-foreground">Unit</Label>
+                  <Input value={src.unit} onChange={e => {
+                    const updated = [...spSources]; updated[i] = { ...updated[i], unit: e.target.value }; setSpSources(updated);
+                  }} className="h-8 text-xs font-mono" />
+                </div>
+                <div className="w-28">
+                  <Label className="text-xs text-muted-foreground">Contribution</Label>
+                  <Input type="number" value={spContributions[i]?.contribution || '0'} onChange={e => {
+                    const updated = [...spContributions]; updated[i] = { source: src.name, contribution: e.target.value }; setSpContributions(updated);
+                  }} className="h-8 text-xs font-mono" />
+                </div>
+                {spSources.length > 2 && (
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive/70" onClick={() => {
+                    setSpSources(spSources.filter((_, j) => j !== i));
+                    setSpContributions(spContributions.filter((_, j) => j !== i));
+                  }}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        );
     }
   };
 
@@ -193,6 +301,7 @@ const QuickSolverTab = () => {
               { val: 'series_parallel', label: 'Series / Parallel R' },
               { val: 'thevenin', label: 'Thévenin / Norton' },
               { val: 'power', label: 'Power Analysis' },
+              { val: 'superposition', label: 'Superposition' },
             ].map(({ val, label }) => (
               <button
                 key={val}
