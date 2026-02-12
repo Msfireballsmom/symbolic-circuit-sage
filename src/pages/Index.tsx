@@ -5,9 +5,10 @@ import TransientTab from "@/components/TransientTab";
 import RLCTransientTab from "@/components/RLCTransientTab";
 import ACPhasorTab from "@/components/ACPhasorTab";
 import LaplaceTab from "@/components/LaplaceTab";
+import FourierTab from "@/components/FourierTab";
 import QuickSolverTab from "@/components/QuickSolverTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma } from "lucide-react";
+import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform } from "lucide-react";
 
 const Index = () => {
   return (
@@ -66,6 +67,10 @@ const Index = () => {
               <Sigma className="w-4 h-4" />
               Laplace
             </TabsTrigger>
+            <TabsTrigger value="fourier" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <AudioWaveform className="w-4 h-4" />
+              Fourier
+            </TabsTrigger>
             <TabsTrigger value="reference" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <BookOpen className="w-4 h-4" />
               Reference
@@ -79,6 +84,7 @@ const Index = () => {
           <TabsContent value="rlc"><RLCTransientTab /></TabsContent>
           <TabsContent value="ac"><ACPhasorTab /></TabsContent>
           <TabsContent value="laplace"><LaplaceTab /></TabsContent>
+          <TabsContent value="fourier"><FourierTab /></TabsContent>
           <TabsContent value="reference">
             <div className="p-6 rounded-lg bg-card border border-border space-y-6">
               <h3 className="text-lg font-bold text-foreground">Quick Reference — ET310 Formulas</h3>
@@ -156,6 +162,21 @@ const Index = () => {
                     <p>t&gt;0: Solve with initial conditions</p>
                     <p>Continuity: v_C(0⁻) = v_C(0⁺)</p>
                     <p>Continuity: i_L(0⁻) = i_L(0⁺)</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-primary">Fourier Series</h4>
+                  <div className="space-y-1 font-mono text-xs text-equation">
+                    <p>f(t) = a₀ + Σ[aₙcos(nω₀t) + bₙsin(nω₀t)]</p>
+                    <p>a₀ = (1/T)∫₀ᵀ f(t)dt</p>
+                    <p>aₙ = (2/T)∫₀ᵀ f(t)cos(nω₀t)dt</p>
+                    <p>bₙ = (2/T)∫₀ᵀ f(t)sin(nω₀t)dt</p>
+                    <p>ω₀ = 2π/T = 2πf₀</p>
+                    <p>Even sym: bₙ = 0 (cosine only)</p>
+                    <p>Odd sym: aₙ = 0 (sine only)</p>
+                    <p>Half-wave: even harmonics = 0</p>
+                    <p>Parseval: P = a₀² + ½Σ(aₙ²+bₙ²)</p>
                   </div>
                 </div>
               </div>
