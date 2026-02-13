@@ -1,3 +1,4 @@
+import { useState } from "react";
 import SolverHeader from "@/components/SolverHeader";
 import DCAnalysisTab from "@/components/DCAnalysisTab";
 import MeshAnalysisTab from "@/components/MeshAnalysisTab";
@@ -9,10 +10,13 @@ import FourierTab from "@/components/FourierTab";
 import QuickSolverTab from "@/components/QuickSolverTab";
 import CurriculumTab from "@/components/CurriculumTab";
 import BodePlotTab from "@/components/BodePlotTab";
+import CircuitSagePanel from "@/components/CircuitSagePanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, GraduationCap, BarChart3 } from "lucide-react";
+import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, GraduationCap, BarChart3, Lightbulb } from "lucide-react";
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState("quick");
+
   return (
     <div className="min-h-screen bg-background grid-bg">
       <SolverHeader />
@@ -39,7 +43,7 @@ const Index = () => {
 
       {/* Solver Tabs */}
       <main className="container px-4 py-8">
-        <Tabs defaultValue="quick" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-card border border-border h-auto p-1 flex-wrap">
             <TabsTrigger value="quick" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Calculator className="w-4 h-4" />
@@ -77,6 +81,10 @@ const Index = () => {
               <BarChart3 className="w-4 h-4" />
               Bode Plot
             </TabsTrigger>
+            <TabsTrigger value="sage" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
+              <Lightbulb className="w-4 h-4" />
+              Circuit Sage
+            </TabsTrigger>
             <TabsTrigger value="reference" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <BookOpen className="w-4 h-4" />
               Reference
@@ -96,6 +104,7 @@ const Index = () => {
           <TabsContent value="laplace"><LaplaceTab /></TabsContent>
           <TabsContent value="fourier"><FourierTab /></TabsContent>
           <TabsContent value="bode"><BodePlotTab /></TabsContent>
+          <TabsContent value="sage"><CircuitSagePanel onNavigateToTab={setActiveTab} /></TabsContent>
           <TabsContent value="reference">
             <div className="p-6 rounded-lg bg-card border border-border space-y-6">
               <h3 className="text-lg font-bold text-foreground">Quick Reference — ET310 Formulas</h3>
@@ -275,7 +284,7 @@ const Index = () => {
       <footer className="border-t border-border py-6 mt-8">
         <div className="container px-4 flex items-center justify-between text-xs text-muted-foreground">
           <span>ET310 Circuit Solver — Nilsson & Riedel Framework</span>
-          <span className="font-mono">v2.0</span>
+          <span className="font-mono">v3.0</span>
         </div>
       </footer>
     </div>

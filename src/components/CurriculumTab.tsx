@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { BookOpen, ChevronDown, CheckCircle2, FileText, FlaskConical, GraduationCap, Target } from "lucide-react";
+import { BookOpen, ChevronDown, CheckCircle2, FileText, FlaskConical, GraduationCap, Target, Trophy } from "lucide-react";
 
 interface Problem {
   id: string;
@@ -10,6 +10,7 @@ interface Problem {
   hints: string[];
   solverTab?: string;
   difficulty: 'easy' | 'medium' | 'hard';
+  solution?: string;
 }
 
 interface Week {
@@ -23,6 +24,18 @@ interface Week {
   labDescription?: string;
 }
 
+interface ExamProblem {
+  id: string;
+  source: string;
+  question: string;
+  solution: string;
+  hints: string[];
+  solverTab?: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  topics: string[];
+}
+
+// ──────────────── ET310 CURRICULUM ────────────────
 const curriculum: Week[] = [
   {
     week: 1,
@@ -50,8 +63,8 @@ const curriculum: Week[] = [
       { id: "1.5", question: "For a circuit with V_s=15V, R1=1kΩ, R2=2kΩ, R3=3kΩ all in series: verify that the sum of voltage drops equals the source voltage (KVL) and that power delivered = power absorbed.", hints: ["KVL: V_s = V_R1 + V_R2 + V_R3", "P_source = V_s × I"], solverTab: "quick", difficulty: "medium" },
       { id: "1.6", question: "Design a voltage divider using two resistors to produce 5V from a 12V source. The total current should not exceed 1mA. What values of R1 and R2 should you use?", hints: ["V_out = V_s × R2/(R1+R2)", "I_total = V_s / (R1+R2) ≤ 1mA"], solverTab: "quick", difficulty: "hard" },
     ],
-    labTitle: "Lab 1: DC Measurements & Verification",
-    labDescription: "Build a series-parallel circuit in Multisim. Measure voltage drops with DMM. Verify Ohm's Law and power balance. Compare simulated vs. calculated values.",
+    labTitle: "Lab 1: Voltage and Current Laws in Multisim",
+    labDescription: "Build a series-parallel circuit (V_s=5V, R1=25kΩ, R2=7kΩ, R3=45kΩ, R4=30kΩ). Measure voltage drop across R2 with DMM. Apply 0%, 5%, and 10% tolerances. Compare calculated Vx=700mV to simulated values. Run 3 trials per tolerance to observe variation.",
   },
   {
     week: 2,
@@ -260,6 +273,164 @@ const curriculum: Week[] = [
   },
 ];
 
+// ──────────────── EENG223 EXAM PROBLEMS ────────────────
+const examProblems: ExamProblem[] = [
+  // MIDTERM EXAM
+  {
+    id: "M1",
+    source: "EENG223 Midterm — Problem 1",
+    question: "The current through and voltage across an element are piecewise-linear functions. i(t): 2t for 0<t<15s, 3t+75 for 15<t<25s. v(t): 30V for 0<t<10s, 5t+80 for 10<t<15s, 5V for 15<t<25s. Sketch the power p(t) delivered to the element for t > 0.",
+    solution: "p(t) = v(t)×i(t). For 0<t<10: p = 30×2t = 60t W. For 10<t<15: p = (5t+80)×2t = 10t²+160t W. For 15<t<25: p = 5×(3t+75) = 15t+375 W.",
+    hints: ["p(t) = v(t) × i(t)", "Compute product in each interval separately", "Plot each piecewise segment"],
+    solverTab: "quick",
+    difficulty: "medium",
+    topics: ["power", "piecewise functions"],
+  },
+  {
+    id: "M2",
+    source: "EENG223 Midterm — Problem 2",
+    question: "Find V₀ and the power supplied by an 8V voltage source using: (a) Nodal Analysis and (b) Mesh Analysis. Circuit has R=3Ω, R=6Ω, 8V source, and 2A current source.",
+    solution: "Nodal: KCL at V₀ → V₀/3 + (V₀-12)/6 = 2 → 2V₀ + V₀ = 24 → V₀ = 8V. Power by 8V source: P = 8×(4/5 + 2) = 22.4W (absorbed). Mesh: Supermesh → 14i₁ - 5i₂ = 8, 5i₁ + 5i₂ = 14 → i₁ = 2/3 A → V₀ = 8V.",
+    hints: ["Nodal: write KCL at V₀ node", "Mesh: identify supermesh due to current source", "Both methods must give same V₀ = 8V"],
+    solverTab: "dc",
+    difficulty: "medium",
+    topics: ["nodal analysis", "mesh analysis", "supermesh"],
+  },
+  {
+    id: "M3",
+    source: "EENG223 Midterm — Problem 3",
+    question: "Find i_b using the superposition principle. Circuit has a 0.5A current source and a 10V voltage source with R = 25Ω.",
+    solution: "0.5A source active, 10V inactive: Since i = 0, i_b' = 0.5A. 10V active, 0.5A inactive: i_b'' = 10/25 = 0.1A. Total: i_b = 0.5 + 0.1 = 0.6A.",
+    hints: ["Deactivate one source at a time", "Voltage source → short circuit when deactivated", "Current source → open circuit when deactivated"],
+    solverTab: "quick",
+    difficulty: "easy",
+    topics: ["superposition"],
+  },
+  {
+    id: "M4",
+    source: "EENG223 Midterm — Problem 4",
+    question: "Use Thévenin's theorem to find current i in the circuit. Contains a dependent source (2i), independent 28V source, R=12Ω, R=4Ω, and R=8Ω load.",
+    solution: "KVL: 28 - 12 + 4(2)(12) + V_oc = 0 → V_oc = 432V = V_TH. For R_TH: set independent sources to zero, apply test source. KVL: 28 - 12 + V = 0 → V = 40V → R_TH = 40Ω. i = V_TH/(R_TH + 8) = 432/48 = 9A.",
+    hints: ["Find V_oc by removing the load", "R_TH with dependent source: use test source method", "i = V_TH / (R_TH + R_load)"],
+    solverTab: "quick",
+    difficulty: "hard",
+    topics: ["Thévenin", "dependent sources"],
+  },
+  // FINAL EXAM
+  {
+    id: "F1",
+    source: "EENG223 Final — Problem 1",
+    question: "Find i₀ using (a) Nodal analysis and (b) Mesh analysis. Circuit has 4Ω resistors, 8A current source, 10V voltage source, 2Ω resistor, and dependent source 2vₓ.",
+    solution: "Nodal: Supernode for 10V source → V₃ = V₂ + 10, vₓ = V₂. KCL: 11V₂ + V₁ = 42, 2V₁ - V₂ = 42. Solution: vₓ = 2V, V₁ = 20V → i₀ = 5A. Mesh: Supermesh for 8A source → i₁ - i₃ = 8. KVL: 4i₃ + 2(i₃-i₂) + 10 + 4i₁ = 0 → i₀ = 5A.",
+    hints: ["Handle voltage source with supernode", "Handle current source with supermesh", "Dependent source: express in terms of node voltages"],
+    solverTab: "dc",
+    difficulty: "hard",
+    topics: ["nodal analysis", "mesh analysis", "supernode", "supermesh", "dependent sources"],
+  },
+  {
+    id: "F2",
+    source: "EENG223 Final — Problem 2",
+    question: "Find the value of R that absorbs maximum power. Circuit has 2A current source, 5Ω, dependent source 3Vₓ, 8Ω, and load R. Find R and P_max.",
+    solution: "R_TH: Apply test source. KVL: Vₓ + 3Vₓ + 8(i+1) = 0 → Vₓ = -5i → i = 4A → V_t = 40V → R_TH = 40Ω. V_TH: i₁ = 2A, KVL → Vₓ = -40/4 V → V_TH = 80V. R = R_TH = 40Ω. P_max = V_TH²/(4R) = 6400/160 = 40W.",
+    hints: ["Max power when R = R_TH", "Use test source for R_TH with dependent sources", "P_max = V_TH²/(4R_TH)"],
+    solverTab: "quick",
+    difficulty: "hard",
+    topics: ["maximum power transfer", "Thévenin", "dependent sources"],
+  },
+  {
+    id: "F3",
+    source: "EENG223 Final — Problem 3",
+    question: "Initial capacitor voltage v(0) = 10V. Circuit has dependent source 6v, 0.4F capacitor, and two 10Ω resistors. (a) Find v(t) for t > 0. (b) Find iₓ at t = 0.5s.",
+    solution: "(a) KCL: i + v/10 + (v+6v)/10 = 0 → i = -0.8v. Since i = C(dv/dt) → dv/dt = -2v → v(t) = 10e^(-2t) V. (b) iₓ = 7v/10 = 7e^(-2t). At t=0.5: iₓ = 7e^(-1) ≈ 2.576 A.",
+    hints: ["KCL at the node with the capacitor", "i = C(dv/dt) gives first-order ODE", "Exponential decay with time constant 1/2"],
+    solverTab: "transient",
+    difficulty: "medium",
+    topics: ["RC transient", "dependent sources", "first-order ODE"],
+  },
+  {
+    id: "F4",
+    source: "EENG223 Final — Problem 4",
+    question: "Switch has been in position a for a long time. At t = 0, switch moves to b. Circuit has 8A source, 15Ω, two 10Ω resistors, and 100mH inductor. (a) Find i(t) for t > 0. (b) Find v(t) for t > 0.",
+    solution: "(a) i(0) = (10/10)×8 = 2A (current divider for t<0). R_eq = 15 + (10∥10) = 20Ω. τ = L/R = 0.1/20 = 5ms. i(t) = 2e^(-200t) A. (b) v(t) = 15i + L(di/dt) = 30e^(-200t) - 20×0.1×200e^(-200t) → check with KVL.",
+    hints: ["Find i(0) from steady-state t<0 circuit", "For t>0: find R_eq seen by inductor", "τ = L/R_eq"],
+    solverTab: "transient",
+    difficulty: "hard",
+    topics: ["RL transient", "switching circuits", "initial conditions"],
+  },
+  {
+    id: "F5",
+    source: "EENG223 Final — Problem 5",
+    question: "Find the output voltage v₀ and output current i₀ of an op-amp circuit. Circuit has 0.5V input, 5kΩ, three 10kΩ resistors, and ideal op-amp.",
+    solution: "Virtual ground: V⁻ = V⁺ = 0. KCL at V⁻: (0.5-0)/5k = 0/10k → V₁ = 1V. KCL at V₁: V₁/10k + (V₁-v₀)/10k = 0 → v₀ = 3V₁ = -3V. i₀ = v₀/R + V₁/10k = -0.2mA.",
+    hints: ["Ideal op-amp: V⁺ = V⁻ (virtual short)", "No current into op-amp inputs", "Write KCL at inverting input node"],
+    solverTab: "quick",
+    difficulty: "medium",
+    topics: ["op-amp", "virtual ground", "KCL"],
+  },
+  // QUIZ 1 PROBLEMS (ET310)
+  {
+    id: "Q1.1",
+    source: "ET310 Quiz 1 — Q1",
+    question: "The current entering a terminal is given by i(t) = 6 + 16t – 4t². Find the time when the current is maximum.",
+    solution: "di/dt = 16 - 8t = 0 → t = 2 seconds. Verify d²i/dt² = -8 < 0 (maximum). Answer: t = 2 seconds.",
+    hints: ["Take derivative di/dt", "Set di/dt = 0", "Verify it's a maximum with second derivative"],
+    solverTab: "quick",
+    difficulty: "easy",
+    topics: ["calculus", "current"],
+  },
+  {
+    id: "Q1.2",
+    source: "ET310 Quiz 1 — Q2",
+    question: "If the charge entering a terminal is q(t) = 8t³ + 6t Coulombs, what is the current i(t) as a function of time?",
+    solution: "i(t) = dq/dt = d/dt[8t³] + d/dt[6t] = 24t² + 6 A.",
+    hints: ["i(t) = dq/dt", "Power rule: d/dt[tⁿ] = ntⁿ⁻¹"],
+    solverTab: "quick",
+    difficulty: "easy",
+    topics: ["charge", "current", "derivatives"],
+  },
+  {
+    id: "Q1.3",
+    source: "ET310 Quiz 1 — Q3",
+    question: "Given V₀ = 15V, R₁ = 150Ω, R₂ = 300Ω, with a dependent current source 3i₁: Find i₁, I₀, Vₓ, and the current drawn from the source.",
+    solution: "i₁ = V₀/R₁ = 15/150 = 0.1A. 3i₁ = 0.3A. i₂ = V₀/R₂ = 15/300 = 0.05A. I₀ = i₁ + 3i₁ + i₂ = 0.1 + 0.3 + 0.05 = 0.45A. KVL: V₀ - i₁R₁ - Vₓ + i₂R₂ = 0 → Vₓ = 15V.",
+    hints: ["Find i₁ using Ohm's law", "Dependent source provides 3×i₁", "Apply KCL at the node", "Apply KVL around a loop for Vₓ"],
+    solverTab: "dc",
+    difficulty: "medium",
+    topics: ["dependent sources", "KCL", "KVL"],
+  },
+  {
+    id: "Q1.4",
+    source: "ET310 Quiz 1 — Q4",
+    question: "When talking about voltage and current, one might say which? (a) Voltage drops, current flows (b) Voltage flows, current drops (c) Both flow (d) Both drop.",
+    solution: "Answer: (a) Voltage drops, current flows. Voltage is a potential difference (drops across elements). Current is flow of charge (flows through elements).",
+    hints: ["Voltage is potential difference across elements", "Current is charge flow through elements"],
+    solverTab: "quick",
+    difficulty: "easy",
+    topics: ["concepts", "terminology"],
+  },
+  {
+    id: "Q1.5",
+    source: "ET310 Quiz 1 — Q5",
+    question: "Given I₀ = 10mA, V₃ = 8V, R₁ = 200Ω, R₂ = 100Ω: Find the voltage across the current source, the current through the voltage source, and the power dissipated by R₂.",
+    solution: "Using circuit analysis with given values. Find voltage across current source using KVL. Current through voltage source via KCL. P_R₂ = I²R₂ = (80mA)² × 100 = 640mW.",
+    hints: ["Apply KVL around loops containing the current source", "Apply KCL at nodes with the voltage source", "P = I²R for power dissipation"],
+    solverTab: "dc",
+    difficulty: "medium",
+    topics: ["KVL", "KCL", "power"],
+  },
+  {
+    id: "Q1.6",
+    source: "ET310 Quiz 1 — Q6",
+    question: "The current entering a terminal is i(t) = 4t Amps. How much charge accumulates after 3 seconds?",
+    solution: "q = ∫₀³ i(t)dt = ∫₀³ 4t dt = [2t²]₀³ = 2(9) - 0 = 18 Coulombs.",
+    hints: ["q = ∫i(t)dt", "Integrate from 0 to 3", "∫4t dt = 2t²"],
+    solverTab: "quick",
+    difficulty: "easy",
+    topics: ["charge", "integration"],
+  },
+];
+
+// ──────────────── COMPONENT ────────────────
 const difficultyColor = {
   easy: "bg-green-500/10 text-green-400 border-green-500/30",
   medium: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
@@ -268,6 +439,7 @@ const difficultyColor = {
 
 const CurriculumTab = () => {
   const [openWeeks, setOpenWeeks] = useState<Set<number>>(new Set([1]));
+  const [showExams, setShowExams] = useState(false);
 
   const toggle = (week: number) => {
     setOpenWeeks(prev => {
@@ -277,6 +449,8 @@ const CurriculumTab = () => {
     });
   };
 
+  const totalProblems = curriculum.reduce((a, w) => a + w.problems.length, 0) + examProblems.length;
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -285,9 +459,9 @@ const CurriculumTab = () => {
           <div className="flex items-start gap-3">
             <GraduationCap className="w-6 h-6 text-primary mt-0.5" />
             <div>
-              <h3 className="font-bold text-foreground">ET310 Circuit Analysis — Full Curriculum</h3>
+              <h3 className="font-bold text-foreground">ET310 Circuit Analysis — Full Curriculum & Exam Bank</h3>
               <p className="text-xs text-muted-foreground mt-1">
-                8 weeks • Nilsson & Riedel textbook • {curriculum.reduce((a, w) => a + w.problems.length, 0)} practice problems with hints • Lab descriptions included
+                8 weeks • Nilsson & Riedel textbook • {totalProblems} total problems • Includes EENG223 midterm & final exam solutions
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Each problem links to the solver tab that can help you work through it step-by-step.
@@ -295,6 +469,35 @@ const CurriculumTab = () => {
             </div>
           </div>
         </CardContent>
+      </Card>
+
+      {/* Exam Bank Toggle */}
+      <Card className="border-accent/20 bg-accent/5">
+        <Collapsible open={showExams} onOpenChange={setShowExams}>
+          <CollapsibleTrigger className="w-full text-left">
+            <CardHeader className="p-4 cursor-pointer hover:bg-muted/30 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center">
+                    <Trophy className="w-4 h-4 text-accent" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm">📝 Exam Problem Bank (EENG223 + ET310 Quiz)</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">{examProblems.length} problems with full worked solutions • Midterm, Final & Quiz 1</p>
+                  </div>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showExams ? 'rotate-180' : ''}`} />
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="p-4 pt-0 space-y-2">
+              {examProblems.map(ep => (
+                <ExamProblemCard key={ep.id} problem={ep} />
+              ))}
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
       {/* Weeks */}
@@ -408,6 +611,64 @@ const ProblemCard = ({ problem }: { problem: Problem }) => {
           {problem.hints.map((h, i) => (
             <p key={i} className="text-[11px] font-mono text-muted-foreground">💡 {h}</p>
           ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ExamProblemCard = ({ problem }: { problem: ExamProblem }) => {
+  const [showSolution, setShowSolution] = useState(false);
+  const [showHints, setShowHints] = useState(false);
+
+  return (
+    <div className="p-3 rounded-md bg-card border border-border">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="text-xs font-mono font-bold text-accent">#{problem.id}</span>
+            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${difficultyColor[problem.difficulty]}`}>
+              {problem.difficulty}
+            </Badge>
+            <span className="text-[10px] text-muted-foreground italic">{problem.source}</span>
+            {problem.solverTab && (
+              <span className="text-[10px] text-muted-foreground">→ use {problem.solverTab} tab</span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1 mb-1.5">
+            {problem.topics.map((t, i) => (
+              <Badge key={i} variant="secondary" className="text-[9px] px-1.5 py-0">
+                {t}
+              </Badge>
+            ))}
+          </div>
+          <p className="text-xs text-foreground leading-relaxed">{problem.question}</p>
+        </div>
+      </div>
+      <div className="flex gap-3 mt-2">
+        <button
+          onClick={() => setShowHints(!showHints)}
+          className="text-[10px] text-primary hover:underline"
+        >
+          {showHints ? "Hide hints" : "Show hints"}
+        </button>
+        <button
+          onClick={() => setShowSolution(!showSolution)}
+          className="text-[10px] text-accent hover:underline"
+        >
+          {showSolution ? "Hide solution" : "Show full solution"}
+        </button>
+      </div>
+      {showHints && (
+        <div className="mt-1.5 space-y-0.5">
+          {problem.hints.map((h, i) => (
+            <p key={i} className="text-[11px] font-mono text-muted-foreground">💡 {h}</p>
+          ))}
+        </div>
+      )}
+      {showSolution && (
+        <div className="mt-2 p-2.5 rounded bg-accent/10 border border-accent/20">
+          <p className="text-[11px] font-mono text-equation leading-relaxed whitespace-pre-wrap">{problem.solution}</p>
         </div>
       )}
     </div>
