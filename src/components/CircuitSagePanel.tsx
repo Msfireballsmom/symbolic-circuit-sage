@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Play, AlertTriangle, CheckCircle, FileText, Trash2 } from "lucide-react";
+import { Upload, Play, AlertTriangle, CheckCircle, FileText, Trash2, Image, Loader2 } from "lucide-react";
 import { parseProblem, formatParsedSummary, formatMethod, ParsedProblem } from "@/lib/problem-parser";
 import {
   solveOhmsLaw, solveSeriesParallel, solveVoltageDivider,
@@ -11,6 +11,8 @@ import {
   TransientResult, ACResult, RLCResult,
 } from "@/lib/circuit-solver";
 import { solveMesh, MeshComponent, MeshResult } from "@/lib/mesh-solver";
+import { solveOpAmp, solveDiode, solveWithDependentSources, DepSourceResult } from "@/lib/advanced-solvers";
+import { supabase } from "@/integrations/supabase/client";
 import StepDisplay from "./StepDisplay";
 import MatrixDisplay from "./MatrixDisplay";
 
@@ -30,6 +32,8 @@ type SolverResult = {
   type: 'ac'; data: ACResult;
 } | {
   type: 'rlc'; data: RLCResult;
+} | {
+  type: 'dep'; data: DepSourceResult;
 };
 
 const EXAMPLE_PROBLEMS = [
@@ -40,6 +44,9 @@ const EXAMPLE_PROBLEMS = [
   "AC phasor analysis. Vs = 120V, f = 60Hz, R = 100Ω, L = 50mH, C = 10μF, series RLC",
   "Ohm's law. V = 24V, R = 4.7kΩ, find current and power",
   "Mesh analysis with 2 meshes. Vs = 24V, R1 = 2kΩ in mesh 1, R2 = 4kΩ shared between mesh 1 and mesh 2, R3 = 6kΩ in mesh 2",
+  "Inverting op-amp. Rf = 100kΩ, Rin = 10kΩ, Vin = 0.5V",
+  "Half-wave rectifier. Vs = 12V peak, R = 1kΩ, silicon diode",
+  "Zener regulator. Vs = 15V, R = 330Ω, Vz = 5.1V",
 ];
 
 const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
@@ -48,7 +55,10 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
   const [result, setResult] = useState<SolverResult | null>(null);
   const [error, setError] = useState("");
   const [parseSteps, setParseSteps] = useState<string[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const handleParse = () => {
     if (!problemText.trim()) return;
@@ -57,6 +67,89 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
     const p = parseProblem(problemText);
     setParsed(p);
     setParseSteps(formatParsedSummary(p));
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      setUploadedImage(base64);
+      setIsExtracting(true);
+      setError("");
+      setResult(null);
+      setParsed(null);
+      setParseSteps([]);
+
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke('circuit-extract', {
+          body: { imageBase64: base64, textPrompt: problemText || undefined },
+        });
+
+        if (fnError) throw new Error(fnError.message);
+        if (data?.error) throw new Error(data.error);
+
+        // Convert AI extraction to ParsedProblem format
+        const aiParsed = convertAIToParsed(data);
+        setParsed(aiParsed);
+        setParseSteps(formatParsedSummary(aiParsed));
+        
+        // Also set the problem text for reference
+        if (data.problemDescription) {
+          setProblemText(data.problemDescription);
+        }
+      } catch (err: any) {
+        setError(`Image extraction failed: ${err.message}`);
+      } finally {
+        setIsExtracting(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const convertAIToParsed = (aiData: any): ParsedProblem => {
+    const components = (aiData.components || []).map((c: any) => ({
+      type: mapComponentType(c.type),
+      label: c.label || 'Unknown',
+      value: c.value || 0,
+      nodeA: c.nodeA ?? 1,
+      nodeB: c.nodeB ?? 0,
+      meshes: c.meshes,
+      config: c.config,
+      gain: c.gain,
+      dependentOn: c.dependentOn,
+    }));
+
+    return {
+      components,
+      method: aiData.analysisMethod || 'unknown',
+      frequency: aiData.frequency,
+      phase: aiData.phase,
+      initialVoltage: aiData.initialVoltage,
+      initialCurrent: aiData.initialCurrent,
+      sourceVoltage: components.find((c: any) => c.type === 'voltage_source')?.value,
+      sourceCurrent: components.find((c: any) => c.type === 'current_source')?.value,
+      topology: aiData.topology === 'mixed' ? undefined : aiData.topology,
+      findWhat: aiData.findWhat || ['all'],
+      rawText: aiData.problemDescription || '',
+      confidence: aiData.confidence || 0.5,
+      warnings: aiData.warnings || [],
+    };
+  };
+
+  const mapComponentType = (aiType: string): string => {
+    const map: Record<string, string> = {
+      resistor: 'resistor', capacitor: 'capacitor', inductor: 'inductor',
+      voltage_source: 'voltage_source', current_source: 'current_source',
+      opamp: 'opamp', diode: 'diode', bjt: 'bjt', mosfet: 'mosfet',
+      dependent_voltage_source: 'dependent_voltage_source',
+      dependent_current_source: 'dependent_current_source',
+      transformer: 'transformer', switch: 'switch',
+    };
+    return map[aiType] || aiType;
   };
 
   const handleSolve = () => {
@@ -69,7 +162,90 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
       const vSources = components.filter(c => c.type === 'voltage_source');
       const caps = components.filter(c => c.type === 'capacitor');
       const inds = components.filter(c => c.type === 'inductor');
+      const opamps = components.filter(c => c.type === 'opamp');
+      const diodes = components.filter(c => c.type === 'diode');
+      const depSources = components.filter(c => 
+        c.type === 'dependent_voltage_source' || c.type === 'dependent_current_source'
+      );
 
+      // Handle advanced circuit types first
+      if (method === 'opamp' || opamps.length > 0) {
+        const opamp = opamps[0];
+        const config = (opamp as any)?.config || 'inverting';
+        const Rf = resistors.find(r => r.label.match(/[Rr][Ff]/))?.value || resistors[1]?.value || 100000;
+        const Rin = resistors.find(r => r.label.match(/[Rr](1|[Ii][Nn])/))?.value || resistors[0]?.value || 10000;
+        const Vin = vSources[0]?.value || 1;
+        const C = caps[0]?.value;
+        
+        setResult({
+          type: 'quick',
+          data: solveOpAmp({
+            config, Rf, Rin, Vin,
+            Vin2: vSources[1]?.value,
+            R2: resistors[2]?.value,
+            C,
+            frequency: parsed.frequency,
+          }),
+        });
+        return;
+      }
+
+      if (method === 'diode_analysis' || diodes.length > 0) {
+        const diode = diodes[0];
+        const config = (diode as any)?.config || 'forward';
+        const Vs = vSources[0]?.value || 12;
+        const R = resistors[0]?.value || 1000;
+        
+        setResult({
+          type: 'quick',
+          data: solveDiode({
+            config, Vs, R,
+            Vd: diode?.value || 0.7,
+          }),
+        });
+        return;
+      }
+
+      if (method === 'dependent_source' || depSources.length > 0) {
+        const depComps = components.map(c => {
+          if (c.type === 'dependent_voltage_source') {
+            return {
+              type: 'vcvs' as const,
+              value: 0,
+              nodeA: c.nodeA || 1,
+              nodeB: c.nodeB || 0,
+              controlNodeA: 1,
+              controlNodeB: 0,
+              gain: (c as any).gain || 1,
+            };
+          }
+          if (c.type === 'dependent_current_source') {
+            return {
+              type: 'vccs' as const,
+              value: 0,
+              nodeA: c.nodeA || 1,
+              nodeB: c.nodeB || 0,
+              controlNodeA: 1,
+              controlNodeB: 0,
+              gain: (c as any).gain || 1,
+            };
+          }
+          return {
+            type: c.type as 'resistor' | 'voltage_source' | 'current_source',
+            value: c.value,
+            nodeA: c.nodeA || 1,
+            nodeB: c.nodeB || 0,
+          };
+        });
+        
+        setResult({
+          type: 'dep',
+          data: solveWithDependentSources(depComps),
+        });
+        return;
+      }
+
+      // Original linear circuit solvers
       switch (method) {
         case 'ohms_law': {
           const R = resistors[0]?.value;
@@ -122,7 +298,6 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
           break;
         }
         case 'mesh': {
-          // Determine number of meshes
           const allMeshes = new Set<number>();
           components.forEach(c => c.meshes?.forEach(m => allMeshes.add(m)));
           const numMeshes = allMeshes.size || 2;
@@ -188,7 +363,6 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
           break;
         }
         default: {
-          // Fallback: try ohm's law if we have R and V
           if (resistors.length > 0 && vSources.length > 0) {
             setResult({ type: 'quick', data: solveOhmsLaw({ V: vSources[0].value, R: resistors[0].value }) });
           } else if (resistors.length >= 2) {
@@ -206,12 +380,11 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Read text files directly
     if (file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
       const text = await file.text();
       setProblemText(text);
     } else {
-      setProblemText(`[Uploaded: ${file.name}] — Paste the problem text from the file here. Image parsing requires AI backend (enable Cloud for that feature).`);
+      setProblemText(`[Uploaded: ${file.name}] — Paste the problem text from the file here.`);
     }
   };
 
@@ -220,6 +393,16 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
     setParsed(null);
     setResult(null);
     setError("");
+    setUploadedImage(null);
+  };
+
+  const handleClear = () => {
+    setProblemText("");
+    setParsed(null);
+    setResult(null);
+    setError("");
+    setParseSteps([]);
+    setUploadedImage(null);
   };
 
   return (
@@ -229,35 +412,52 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
         <CardHeader className="p-4 pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <FileText className="w-4 h-4 text-primary" />
-            Paste Your Problem — Auto-Parse & Solve
+            Paste, Type, or Upload — Auto-Parse & Solve
           </CardTitle>
           <p className="text-[10px] text-muted-foreground">
-            Paste your homework problem, lab question, or circuit description. The parser extracts components and runs the right solver automatically.
+            Supports linear & nonlinear circuits: op-amps, diodes, dependent sources, transistors, RLC, mesh, nodal — upload an image or paste text.
           </p>
         </CardHeader>
         <CardContent className="p-4 pt-2 space-y-4">
+          {/* Image preview */}
+          {uploadedImage && (
+            <div className="relative">
+              <img src={uploadedImage} alt="Uploaded circuit" className="max-h-48 rounded-md border border-border" />
+              {isExtracting && (
+                <div className="absolute inset-0 bg-background/70 rounded-md flex items-center justify-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="text-sm text-primary font-medium">Extracting circuit...</span>
+                </div>
+              )}
+            </div>
+          )}
+
           <textarea
             value={problemText}
             onChange={(e) => { setProblemText(e.target.value); setParsed(null); setResult(null); }}
-            placeholder={`Paste your circuit problem here...\n\nExamples:\n• "Find voltage across R2. Vs = 12V, R1 = 4kΩ, R2 = 6kΩ, voltage divider"\n• "Nodal analysis: 12V source, R1=1kΩ node 1→2, R2=2kΩ node 2→ground"\n• "RC transient: R=10kΩ, C=47μF, Vs=5V, v(0)=0"\n• "AC series RLC: Vs=120V, f=60Hz, R=100Ω, L=50mH, C=10μF"`}
+            placeholder={`Paste your circuit problem here...\n\nExamples:\n• "Inverting op-amp: Rf = 100kΩ, Rin = 10kΩ, Vin = 0.5V"\n• "Half-wave rectifier: Vs = 12V peak, R = 1kΩ"\n• "Zener regulator: Vs = 15V, R = 330Ω, Vz = 5.1V"\n• "Nodal analysis with dependent source: VCCS gm = 0.01S"\n\nOr upload a photo of your circuit/homework!`}
             className="w-full h-36 rounded-md bg-muted/50 border border-border p-3 text-sm font-mono text-foreground placeholder:text-muted-foreground/50 resize-y focus:outline-none focus:ring-1 focus:ring-primary"
           />
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={handleParse} variant="outline" className="gap-2 text-xs" disabled={!problemText.trim()}>
-              <Play className="w-3.5 h-3.5" /> Parse Problem
+              <Play className="w-3.5 h-3.5" /> Parse Text
             </Button>
             {parsed && (
               <Button onClick={handleSolve} className="gap-2 text-xs">
                 <CheckCircle className="w-3.5 h-3.5" /> Solve ({formatMethod(parsed.method)})
               </Button>
             )}
+            <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => imageInputRef.current?.click()} disabled={isExtracting}>
+              <Image className="w-3.5 h-3.5" /> Upload Image
+            </Button>
             <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={() => fileInputRef.current?.click()}>
               <Upload className="w-3.5 h-3.5" /> Upload .txt
             </Button>
+            <input ref={imageInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleImageUpload} />
             <input ref={fileInputRef} type="file" accept=".txt,.md,text/*" className="hidden" onChange={handleFileUpload} />
-            {problemText && (
-              <Button variant="ghost" size="sm" className="gap-1 text-xs text-destructive" onClick={() => { setProblemText(""); setParsed(null); setResult(null); setError(""); setParseSteps([]); }}>
+            {(problemText || uploadedImage) && (
+              <Button variant="ghost" size="sm" className="gap-1 text-xs text-destructive" onClick={handleClear}>
                 <Trash2 className="w-3.5 h-3.5" /> Clear
               </Button>
             )}
@@ -291,6 +491,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
               <Badge variant={parsed && parsed.confidence > 0.6 ? "default" : "secondary"} className="text-[9px]">
                 {parsed ? `${(parsed.confidence * 100).toFixed(0)}% confidence` : ''}
               </Badge>
+              {uploadedImage && <Badge variant="outline" className="text-[9px]">AI Extracted</Badge>}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-2">
@@ -307,7 +508,6 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
                   <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                   <div>
                     {parsed.warnings.map((w, i) => <p key={i}>{w}</p>)}
-                    <p className="mt-1 text-muted-foreground">You can also go to a specific solver tab for manual input.</p>
                   </div>
                 </div>
               </div>
@@ -430,6 +630,21 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
                     <span className="text-xs text-muted-foreground">ω₀</span>
                     <p className="text-lg font-mono font-bold text-primary glow-text">{result.data.omega0.toFixed(4)}</p>
                   </div>
+                </div>
+                <StepDisplay steps={result.data.steps} />
+              </div>
+            )}
+
+            {result.type === 'dep' && (
+              <div>
+                <h4 className="text-sm font-semibold mb-3">MNA with Dependent Sources</h4>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  {result.data.nodeVoltages.map(nv => (
+                    <div key={nv.node} className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
+                      <span className="text-xs text-muted-foreground">V{nv.node}</span>
+                      <p className="text-lg font-mono font-bold text-primary glow-text">{nv.voltage.toFixed(4)} V</p>
+                    </div>
+                  ))}
                 </div>
                 <StepDisplay steps={result.data.steps} />
               </div>
