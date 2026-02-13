@@ -1,0 +1,414 @@
+// ============ PROBLEM TEXT PARSER ============
+// Extracts circuit components, analysis type, and parameters from plain text
+// Zero AI — pure regex + pattern matching for deterministic extraction
+
+export interface ParsedComponent {
+  type: 'resistor' | 'voltage_source' | 'current_source' | 'capacitor' | 'inductor';
+  label: string;
+  value: number;       // in base units (Ω, V, A, F, H)
+  nodeA?: number;
+  nodeB?: number;
+  meshes?: number[];
+}
+
+export type AnalysisMethod =
+  | 'ohms_law' | 'voltage_divider' | 'current_divider'
+  | 'series_parallel' | 'thevenin' | 'power'
+  | 'dc_nodal' | 'mesh' | 'transient' | 'rlc'
+  | 'ac_phasor' | 'superposition' | 'unknown';
+
+export interface ParsedProblem {
+  components: ParsedComponent[];
+  method: AnalysisMethod;
+  frequency?: number;      // Hz for AC
+  phase?: number;          // degrees
+  initialVoltage?: number; // v(0) for transient
+  initialCurrent?: number; // i(0) for transient
+  sourceVoltage?: number;
+  sourceCurrent?: number;
+  topology?: 'series' | 'parallel';
+  findWhat: string[];      // what the problem asks for
+  rawText: string;
+  confidence: number;      // 0-1 how confident the parse is
+  warnings: string[];
+}
+
+// Unit multiplier lookup
+function parseUnit(raw: string): number {
+  const s = raw.trim().toLowerCase();
+  if (s.startsWith('g')) return 1e9;
+  if (s.startsWith('meg') || s === 'mω' || s === 'mohm') return 1e6;
+  if (s.startsWith('m') && !s.startsWith('meg')) return 1e6; // M prefix
+  if (s === 'k' || s.startsWith('k')) return 1e3;
+  if (s === 'm' || s.startsWith('milli') || s === 'ma') return 1e-3;
+  if (s === 'u' || s === 'μ' || s.startsWith('micro')) return 1e-6;
+  if (s === 'n' || s.startsWith('nano')) return 1e-9;
+  if (s === 'p' || s.startsWith('pico')) return 1e-12;
+  return 1;
+}
+
+function parseValueWithUnit(valStr: string, unitStr: string): number {
+  const num = parseFloat(valStr);
+  if (isNaN(num)) return 0;
+
+  // Extract multiplier prefix from unit string
+  const unitLower = unitStr.trim().toLowerCase();
+  
+  // Common patterns: "kΩ", "kohm", "kohms", "mA", "mV", "μF", "nF", "mH"
+  let multiplier = 1;
+  if (/^k/i.test(unitLower)) multiplier = 1e3;
+  else if (/^meg/i.test(unitLower)) multiplier = 1e6;
+  else if (/^[mM](?:Ω|ohm|ω)/i.test(unitLower)) multiplier = 1e6; // MΩ
+  else if (/^m(?!eg)/i.test(unitLower)) multiplier = 1e-3; // mA, mV, mH
+  else if (/^[uμµ]/i.test(unitLower)) multiplier = 1e-6;
+  else if (/^n/i.test(unitLower)) multiplier = 1e-9;
+  else if (/^p/i.test(unitLower)) multiplier = 1e-12;
+
+  return num * multiplier;
+}
+
+// Extract all resistors, sources, caps, inductors from text
+function extractComponents(text: string): ParsedComponent[] {
+  const components: ParsedComponent[] = [];
+  const lowerText = text.toLowerCase();
+
+  // Pattern: R1 = 4kΩ, R₁ = 4 kΩ, R1=4kohm, R = 100Ω, etc.
+  const rPatterns = [
+    /r[₁₂₃₄₅₆₇₈₉]?\s*[=:]\s*([\d.]+)\s*([kKmMgGμuUnNpP]?)\s*(?:Ω|ohm|ω)/gi,
+    /r(\d+)\s*[=:]\s*([\d.]+)\s*([kKmMgGμuUnNpP]?)\s*(?:Ω|ohm|ω)?/gi,
+    /([\d.]+)\s*([kKmMgGμuUnNpP]?)\s*(?:Ω|ohm|ω)\s*resistor/gi,
+    /resistor[^=]*?[=:of]*\s*([\d.]+)\s*([kKmMgGμuUnNpP]?)\s*(?:Ω|ohm|ω)?/gi,
+  ];
+
+  // Subscript digit mapping
+  const subDigit: Record<string, string> = { '₁': '1', '₂': '2', '₃': '3', '₄': '4', '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9', '₀': '0' };
+
+  // Normalize subscripts
+  let normText = text;
+  Object.entries(subDigit).forEach(([sub, dig]) => {
+    normText = normText.replace(new RegExp(sub, 'g'), dig);
+  });
+
+  // Extract R values: "R1 = 4kΩ" style
+  const rAssign = /[Rr](\d*)\s*[=:]\s*([\d.]+)\s*([kKmMμuUnNpP]?)\s*(?:Ω|ohm|ohms|ω)?/g;
+  let match: RegExpExecArray | null;
+  const foundLabels = new Set<string>();
+
+  while ((match = rAssign.exec(normText)) !== null) {
+    const idx = match[1] || String(components.filter(c => c.type === 'resistor').length + 1);
+    const label = `R${idx}`;
+    if (foundLabels.has(label)) continue;
+    foundLabels.add(label);
+    const value = parseValueWithUnit(match[2], match[3] || '');
+    if (value > 0) components.push({ type: 'resistor', label, value });
+  }
+
+  // Extract standalone "4.7kΩ" or "100 ohm" values if no R= found
+  if (components.filter(c => c.type === 'resistor').length === 0) {
+    const standalone = /([\d.]+)\s*([kKmMμuUnNpP]?)\s*(?:Ω|ohm|ohms|ω)/g;
+    while ((match = standalone.exec(normText)) !== null) {
+      const rIdx = components.filter(c => c.type === 'resistor').length + 1;
+      const value = parseValueWithUnit(match[1], match[2] || '');
+      if (value > 0) components.push({ type: 'resistor', label: `R${rIdx}`, value });
+    }
+  }
+
+  // Voltage sources: "Vs = 12V", "V1 = 24V", "12V source", "voltage source of 12V"
+  const vPatterns = [
+    /[Vv][sS₁₂₃]?\s*[=:]\s*([\d.]+)\s*([kKmM]?)\s*[Vv]/g,
+    /([\d.]+)\s*([kKmM]?)\s*[Vv]\s*(?:source|supply|battery)/gi,
+    /(?:voltage|source|supply|battery)[^=]*?[=:of]*\s*([\d.]+)\s*([kKmM]?)\s*[Vv]?/gi,
+  ];
+
+  for (const pat of vPatterns) {
+    while ((match = pat.exec(normText)) !== null) {
+      const vIdx = components.filter(c => c.type === 'voltage_source').length + 1;
+      const label = `Vs${vIdx > 1 ? vIdx : ''}`;
+      if (foundLabels.has(label)) continue;
+      foundLabels.add(label);
+      const value = parseValueWithUnit(match[1], match[2] || '');
+      if (value > 0) components.push({ type: 'voltage_source', label, value, nodeA: 1, nodeB: 0 });
+    }
+    if (components.some(c => c.type === 'voltage_source')) break;
+  }
+
+  // Current sources: "Is = 2mA", "5A current source"
+  const iPatterns = [
+    /[Ii][sS]?\s*[=:]\s*([\d.]+)\s*([kKmMμuUnNpP]?)\s*[Aa]/g,
+    /([\d.]+)\s*([kKmMμuUnNpP]?)\s*[Aa]\s*(?:current\s*source)/gi,
+  ];
+
+  for (const pat of iPatterns) {
+    while ((match = pat.exec(normText)) !== null) {
+      const iIdx = components.filter(c => c.type === 'current_source').length + 1;
+      const label = `Is${iIdx > 1 ? iIdx : ''}`;
+      if (foundLabels.has(label)) continue;
+      foundLabels.add(label);
+      const value = parseValueWithUnit(match[1], match[2] || '');
+      if (value > 0) components.push({ type: 'current_source', label, value, nodeA: 1, nodeB: 0 });
+    }
+    if (components.some(c => c.type === 'current_source')) break;
+  }
+
+  // Capacitors: "C = 10μF", "C1 = 100nF"
+  const cPattern = /[Cc](\d*)\s*[=:]\s*([\d.]+)\s*([kKmMμuUnNpP]?)\s*[Ff]/g;
+  while ((match = cPattern.exec(normText)) !== null) {
+    const idx = match[1] || String(components.filter(c => c.type === 'capacitor').length + 1);
+    const label = `C${idx}`;
+    if (foundLabels.has(label)) continue;
+    foundLabels.add(label);
+    const value = parseValueWithUnit(match[2], match[3] + 'F');
+    if (value > 0) components.push({ type: 'capacitor', label, value });
+  }
+
+  // Inductors: "L = 100mH", "L1 = 50mH"
+  const lPattern = /[Ll](\d*)\s*[=:]\s*([\d.]+)\s*([kKmMμuUnNpP]?)\s*[Hh]/g;
+  while ((match = lPattern.exec(normText)) !== null) {
+    const idx = match[1] || String(components.filter(c => c.type === 'inductor').length + 1);
+    const label = `L${idx}`;
+    if (foundLabels.has(label)) continue;
+    foundLabels.add(label);
+    const value = parseValueWithUnit(match[2], match[3] + 'H');
+    if (value > 0) components.push({ type: 'inductor', label, value });
+  }
+
+  // Extract node assignments from text: "R1 between node 1 and node 2"
+  const nodePattern = /([RrVvIiCcLl]\w*)\s*(?:between|from|connects?)\s*(?:node\s*)(\d+)\s*(?:and|to)\s*(?:node\s*)(\d+)/gi;
+  while ((match = nodePattern.exec(normText)) !== null) {
+    const label = match[1].toUpperCase();
+    const comp = components.find(c => c.label.toUpperCase() === label);
+    if (comp) {
+      comp.nodeA = parseInt(match[2]);
+      comp.nodeB = parseInt(match[3]);
+    }
+  }
+
+  // Extract mesh assignments: "R1 in mesh 1", "R2 shared between mesh 1 and mesh 2"
+  const meshPattern = /([RrVvIi]\w*)\s*(?:in|belongs?\s*to)\s*mesh\s*(\d+)/gi;
+  while ((match = meshPattern.exec(normText)) !== null) {
+    const label = match[1].toUpperCase();
+    const comp = components.find(c => c.label.toUpperCase() === label);
+    if (comp) {
+      comp.meshes = [parseInt(match[2])];
+    }
+  }
+
+  const sharedMesh = /([RrVvIi]\w*)\s*shared\s*(?:between)?\s*mesh\s*(\d+)\s*(?:and)\s*mesh\s*(\d+)/gi;
+  while ((match = sharedMesh.exec(normText)) !== null) {
+    const label = match[1].toUpperCase();
+    const comp = components.find(c => c.label.toUpperCase() === label);
+    if (comp) {
+      comp.meshes = [parseInt(match[2]), parseInt(match[3])];
+    }
+  }
+
+  return components;
+}
+
+function detectMethod(text: string, components: ParsedComponent[]): AnalysisMethod {
+  const lower = text.toLowerCase();
+  
+  const hasR = components.some(c => c.type === 'resistor');
+  const hasC = components.some(c => c.type === 'capacitor');
+  const hasL = components.some(c => c.type === 'inductor');
+  const hasV = components.some(c => c.type === 'voltage_source');
+  const hasI = components.some(c => c.type === 'current_source');
+  const rCount = components.filter(c => c.type === 'resistor').length;
+
+  // Explicit method mentions
+  if (/mesh\s*(analysis|current|method)/i.test(lower)) return 'mesh';
+  if (/nodal\s*(analysis|voltage|method)/i.test(lower) || /node\s*voltage/i.test(lower)) return 'dc_nodal';
+  if (/superposition/i.test(lower)) return 'superposition';
+  if (/th[eé]venin|norton/i.test(lower)) return 'thevenin';
+  if (/voltage\s*divid/i.test(lower)) return 'voltage_divider';
+  if (/current\s*divid/i.test(lower)) return 'current_divider';
+  if (/bode|frequency\s*response/i.test(lower)) return 'ac_phasor';
+  if (/phasor|ac\s*analysis|impedance/i.test(lower)) return 'ac_phasor';
+  if (/laplace|s[- ]domain|transfer\s*function/i.test(lower)) return 'ac_phasor';
+  if (/transient|time\s*constant|τ|tau|switch|t\s*[=<>]\s*0/i.test(lower)) {
+    return (hasR && hasL && hasC) ? 'rlc' : 'transient';
+  }
+  if (/rlc|second[- ]order|2nd[- ]order|underdamp|overdamp|critically/i.test(lower)) return 'rlc';
+  if (/ohm'?s?\s*law/i.test(lower)) return 'ohms_law';
+  if (/power\s*(dissipat|absorb|deliver|balanc)/i.test(lower)) return 'power';
+  if (/series.*parallel|parallel.*series|equivalent\s*resist/i.test(lower)) return 'series_parallel';
+
+  // Infer from components
+  if (hasR && hasL && hasC) return 'rlc';
+  if ((hasR && hasC) || (hasR && hasL)) {
+    if (/frequency|hz|ω|omega|ac|phasor/i.test(lower)) return 'ac_phasor';
+    return 'transient';
+  }
+  if (hasR && rCount === 2 && hasV && !hasI) return 'voltage_divider';
+  if (hasR && rCount === 2 && hasI && !hasV) return 'current_divider';
+  if (hasR && rCount >= 2) return 'series_parallel';
+  if (hasR && (hasV || hasI)) return 'ohms_law';
+  if (hasR) return 'ohms_law';
+
+  return 'unknown';
+}
+
+function detectTopology(text: string): 'series' | 'parallel' | undefined {
+  const lower = text.toLowerCase();
+  if (/parallel/i.test(lower)) return 'parallel';
+  if (/series/i.test(lower)) return 'series';
+  return undefined;
+}
+
+function extractFrequency(text: string): number | undefined {
+  const match = text.match(/([\d.]+)\s*([kKmMgG]?)\s*[Hh]z/);
+  if (match) return parseValueWithUnit(match[1], match[2] || '');
+  const omegaMatch = text.match(/[ωw]\s*[=:]\s*([\d.]+)/i);
+  if (omegaMatch) return parseFloat(omegaMatch[1]) / (2 * Math.PI);
+  return undefined;
+}
+
+function extractInitials(text: string): { voltage?: number; current?: number } {
+  const result: { voltage?: number; current?: number } = {};
+  const vMatch = text.match(/v[_c(]*0[⁺+)]*\s*[=:]\s*([\d.]+)/i);
+  if (vMatch) result.voltage = parseFloat(vMatch[1]);
+  const iMatch = text.match(/i[_l(]*0[⁺+)]*\s*[=:]\s*([\d.]+)/i);
+  if (iMatch) result.current = parseFloat(iMatch[1]);
+  return result;
+}
+
+function extractFindWhat(text: string): string[] {
+  const finds: string[] = [];
+  const lower = text.toLowerCase();
+  if (/find.*voltage|voltage.*find|calculate.*voltage|determine.*voltage/i.test(lower)) finds.push('voltage');
+  if (/find.*current|current.*find|calculate.*current|determine.*current/i.test(lower)) finds.push('current');
+  if (/find.*power|power.*find|calculate.*power|determine.*power/i.test(lower)) finds.push('power');
+  if (/find.*resistance|equivalent.*resist|total.*resist/i.test(lower)) finds.push('resistance');
+  if (/find.*impedance|total.*impedance/i.test(lower)) finds.push('impedance');
+  if (/find.*time\s*const|calculate.*tau/i.test(lower)) finds.push('time_constant');
+  if (/thevenin|norton/i.test(lower)) finds.push('equivalent_circuit');
+  if (finds.length === 0) finds.push('all'); // solve everything
+  return finds;
+}
+
+export function parseProblem(text: string): ParsedProblem {
+  const warnings: string[] = [];
+  const components = extractComponents(text);
+  const method = detectMethod(text, components);
+  const topology = detectTopology(text);
+  const frequency = extractFrequency(text);
+  const initials = extractInitials(text);
+  const findWhat = extractFindWhat(text);
+
+  // Calculate confidence
+  let confidence = 0;
+  if (components.length > 0) confidence += 0.4;
+  if (method !== 'unknown') confidence += 0.3;
+  if (components.length >= 2) confidence += 0.15;
+  if (findWhat.length > 0 && findWhat[0] !== 'all') confidence += 0.15;
+
+  // Warnings
+  if (components.length === 0) warnings.push('No circuit components detected. Try formats like "R1 = 4kΩ" or "Vs = 12V".');
+  if (method === 'unknown' && components.length > 0) warnings.push('Could not determine analysis method. Defaulting based on components.');
+
+  // Extract source values for convenience
+  const vSource = components.find(c => c.type === 'voltage_source');
+  const iSource = components.find(c => c.type === 'current_source');
+
+  // Auto-assign nodes if not specified (simple series assumption)
+  let nodeCounter = 1;
+  components.forEach(c => {
+    if (c.nodeA === undefined && c.nodeB === undefined) {
+      if (c.type === 'voltage_source') {
+        c.nodeA = nodeCounter;
+        c.nodeB = 0;
+      } else {
+        c.nodeA = nodeCounter;
+        c.nodeB = nodeCounter + 1;
+        nodeCounter++;
+      }
+    }
+  });
+  // Connect last resistor to ground if in a loop
+  const resistors = components.filter(c => c.type === 'resistor');
+  if (resistors.length > 0 && resistors[resistors.length - 1].nodeB !== 0) {
+    resistors[resistors.length - 1].nodeB = 0;
+  }
+
+  return {
+    components,
+    method,
+    frequency,
+    phase: 0,
+    initialVoltage: initials.voltage,
+    initialCurrent: initials.current,
+    sourceVoltage: vSource?.value,
+    sourceCurrent: iSource?.value,
+    topology,
+    findWhat,
+    rawText: text,
+    confidence,
+    warnings,
+  };
+}
+
+// Format a parsed problem into a readable summary
+export function formatParsedSummary(parsed: ParsedProblem): string[] {
+  const lines: string[] = [];
+  lines.push(`═══ PARSED CIRCUIT PROBLEM ═══`);
+  lines.push(``);
+  
+  lines.push(`Analysis method: ${formatMethod(parsed.method)}`);
+  if (parsed.topology) lines.push(`Topology: ${parsed.topology}`);
+  lines.push(`Confidence: ${(parsed.confidence * 100).toFixed(0)}%`);
+  lines.push(``);
+
+  lines.push(`Components found:`);
+  parsed.components.forEach(c => {
+    const unitMap: Record<string, string> = {
+      resistor: 'Ω', voltage_source: 'V', current_source: 'A',
+      capacitor: 'F', inductor: 'H'
+    };
+    const formatted = formatEngineering(c.value, unitMap[c.type]);
+    lines.push(`  ${c.label} = ${formatted} (${c.type.replace('_', ' ')})`);
+  });
+
+  if (parsed.findWhat.length > 0) {
+    lines.push(``);
+    lines.push(`Solving for: ${parsed.findWhat.join(', ')}`);
+  }
+
+  if (parsed.warnings.length > 0) {
+    lines.push(``);
+    parsed.warnings.forEach(w => lines.push(`⚠ ${w}`));
+  }
+
+  return lines;
+}
+
+function formatMethod(method: AnalysisMethod): string {
+  const map: Record<AnalysisMethod, string> = {
+    ohms_law: "Ohm's Law",
+    voltage_divider: "Voltage Divider",
+    current_divider: "Current Divider",
+    series_parallel: "Series/Parallel Combination",
+    thevenin: "Thévenin/Norton",
+    power: "Power Analysis",
+    dc_nodal: "DC Nodal Analysis (KCL)",
+    mesh: "Mesh Analysis (KVL)",
+    transient: "First-Order Transient",
+    rlc: "Second-Order RLC",
+    ac_phasor: "AC Phasor Analysis",
+    superposition: "Superposition",
+    unknown: "Auto-detect"
+  };
+  return map[method] || method;
+}
+
+function formatEngineering(value: number, unit: string): string {
+  if (value >= 1e9) return `${(value / 1e9).toPrecision(4)} G${unit}`;
+  if (value >= 1e6) return `${(value / 1e6).toPrecision(4)} M${unit}`;
+  if (value >= 1e3) return `${(value / 1e3).toPrecision(4)} k${unit}`;
+  if (value >= 1) return `${value.toPrecision(4)} ${unit}`;
+  if (value >= 1e-3) return `${(value * 1e3).toPrecision(4)} m${unit}`;
+  if (value >= 1e-6) return `${(value * 1e6).toPrecision(4)} μ${unit}`;
+  if (value >= 1e-9) return `${(value * 1e9).toPrecision(4)} n${unit}`;
+  return `${(value * 1e12).toPrecision(4)} p${unit}`;
+}
+
+export { formatMethod, formatEngineering };
