@@ -1,0 +1,4 @@
+project_id = "xawdlkjemzpuztyyxtae"
+
+[functions.circuit-extract]
+verify_jwt = false

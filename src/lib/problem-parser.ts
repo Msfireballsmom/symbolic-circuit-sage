@@ -3,19 +3,24 @@
 // Zero AI — pure regex + pattern matching for deterministic extraction
 
 export interface ParsedComponent {
-  type: 'resistor' | 'voltage_source' | 'current_source' | 'capacitor' | 'inductor';
+  type: 'resistor' | 'voltage_source' | 'current_source' | 'capacitor' | 'inductor' | 'opamp' | 'diode' | 'bjt' | 'mosfet' | 'dependent_voltage_source' | 'dependent_current_source' | 'transformer' | 'switch';
   label: string;
   value: number;       // in base units (Ω, V, A, F, H)
   nodeA?: number;
   nodeB?: number;
   meshes?: number[];
+  config?: string;
+  gain?: number;
+  dependentOn?: string;
 }
 
 export type AnalysisMethod =
   | 'ohms_law' | 'voltage_divider' | 'current_divider'
   | 'series_parallel' | 'thevenin' | 'power'
   | 'dc_nodal' | 'mesh' | 'transient' | 'rlc'
-  | 'ac_phasor' | 'superposition' | 'unknown';
+  | 'ac_phasor' | 'superposition' | 'unknown'
+  | 'opamp' | 'diode_analysis' | 'dependent_source'
+  | 'bjt_analysis' | 'mosfet_analysis' | 'two_port';
 
 export interface ParsedProblem {
   components: ParsedComponent[];
@@ -215,7 +220,14 @@ function detectMethod(text: string, components: ParsedComponent[]): AnalysisMeth
   const hasI = components.some(c => c.type === 'current_source');
   const rCount = components.filter(c => c.type === 'resistor').length;
 
-  // Explicit method mentions
+  // Explicit method mentions — advanced types first
+  if (/op[- ]?amp|operational\s*amplif|inverting|non[- ]inverting|summing\s*amp|differential\s*amp|integrator|differentiator|buffer|voltage\s*follower/i.test(lower)) return 'opamp';
+  if (/diode|rectif|clipper|clamper|zener/i.test(lower)) return 'diode_analysis';
+  if (/dependent\s*source|vcvs|vccs|ccvs|cccs|controlled\s*source/i.test(lower)) return 'dependent_source';
+  if (/bjt|transistor.*npn|transistor.*pnp|common\s*emitter|common\s*base|common\s*collector/i.test(lower)) return 'bjt_analysis';
+  if (/mosfet|nmos|pmos|common\s*source|common\s*drain|common\s*gate/i.test(lower)) return 'mosfet_analysis';
+  if (/two[- ]port|h[- ]param|z[- ]param|y[- ]param|abcd/i.test(lower)) return 'two_port';
+
   if (/mesh\s*(analysis|current|method)/i.test(lower)) return 'mesh';
   if (/nodal\s*(analysis|voltage|method)/i.test(lower) || /node\s*voltage/i.test(lower)) return 'dc_nodal';
   if (/superposition/i.test(lower)) return 'superposition';
@@ -234,6 +246,10 @@ function detectMethod(text: string, components: ParsedComponent[]): AnalysisMeth
   if (/series.*parallel|parallel.*series|equivalent\s*resist/i.test(lower)) return 'series_parallel';
 
   // Infer from components
+  if (components.some(c => c.type === 'opamp')) return 'opamp';
+  if (components.some(c => c.type === 'diode')) return 'diode_analysis';
+  if (components.some(c => c.type === 'dependent_voltage_source' || c.type === 'dependent_current_source')) return 'dependent_source';
+
   if (hasR && hasL && hasC) return 'rlc';
   if ((hasR && hasC) || (hasR && hasL)) {
     if (/frequency|hz|ω|omega|ac|phasor/i.test(lower)) return 'ac_phasor';
@@ -362,7 +378,9 @@ export function formatParsedSummary(parsed: ParsedProblem): string[] {
   parsed.components.forEach(c => {
     const unitMap: Record<string, string> = {
       resistor: 'Ω', voltage_source: 'V', current_source: 'A',
-      capacitor: 'F', inductor: 'H'
+      capacitor: 'F', inductor: 'H', opamp: '', diode: 'V',
+      bjt: '', mosfet: '', dependent_voltage_source: 'V/V',
+      dependent_current_source: 'A/V', transformer: '', switch: '',
     };
     const formatted = formatEngineering(c.value, unitMap[c.type]);
     lines.push(`  ${c.label} = ${formatted} (${c.type.replace('_', ' ')})`);
@@ -395,6 +413,12 @@ function formatMethod(method: AnalysisMethod): string {
     rlc: "Second-Order RLC",
     ac_phasor: "AC Phasor Analysis",
     superposition: "Superposition",
+    opamp: "Op-Amp Analysis",
+    diode_analysis: "Diode Circuit Analysis",
+    dependent_source: "Dependent Source (MNA)",
+    bjt_analysis: "BJT Analysis",
+    mosfet_analysis: "MOSFET Analysis",
+    two_port: "Two-Port Network",
     unknown: "Auto-detect"
   };
   return map[method] || method;
