@@ -27,7 +27,7 @@ const Index = () => {
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-mono text-primary mb-4">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse-glow" />
-              ET310 Circuit Analysis Engine
+              Circuit Analysis Engine v3
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-3">
               Solve any linear circuit with
@@ -91,7 +91,7 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger value="curriculum" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <GraduationCap className="w-4 h-4" />
-              ET310 Curriculum
+              Curriculum
             </TabsTrigger>
           </TabsList>
 
@@ -107,7 +107,7 @@ const Index = () => {
           <TabsContent value="sage"><CircuitSagePanel onNavigateToTab={setActiveTab} /></TabsContent>
           <TabsContent value="reference">
             <div className="p-6 rounded-lg bg-card border border-border space-y-6">
-              <h3 className="text-lg font-bold text-foreground">Quick Reference — ET310 Formulas</h3>
+              <h3 className="text-lg font-bold text-foreground">Quick Reference — Circuit Formulas</h3>
               
               <div className="grid sm:grid-cols-2 gap-6">
                 <div className="space-y-3">
@@ -248,7 +248,7 @@ const Index = () => {
                   </div>
 
                   <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-primary">Visual Types in ET310</h4>
+                    <h4 className="text-sm font-semibold text-primary">Common Visual Types</h4>
                     <div className="space-y-1.5 text-xs text-muted-foreground">
                       <p>📋 <span className="text-foreground font-medium">Circuit schematics</span> — component diagrams</p>
                       <p>📈 <span className="text-foreground font-medium">Time-domain plots</span> — v(t) or i(t) vs time</p>
@@ -283,7 +283,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t border-border py-6 mt-8">
         <div className="container px-4 flex items-center justify-between text-xs text-muted-foreground">
-          <span>ET310 Circuit Solver — Nilsson & Riedel Framework</span>
+          <span>Circuit Solver Pro — Advanced Analysis Engine</span>
           <span className="font-mono">v3.0</span>
         </div>
       </footer>

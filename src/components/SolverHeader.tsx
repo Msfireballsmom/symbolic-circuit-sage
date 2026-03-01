@@ -9,9 +9,9 @@ const SolverHeader = () => (
         </div>
         <div>
           <h1 className="text-lg font-bold tracking-tight text-foreground">
-            ET310 <span className="text-primary glow-text">Circuit Solver</span>
+            Circuit <span className="text-primary glow-text">Solver Pro</span>
           </h1>
-          <p className="text-xs text-muted-foreground -mt-0.5">Nilsson & Riedel Framework</p>
+          <p className="text-xs text-muted-foreground -mt-0.5">Advanced Analysis Engine</p>
         </div>
       </div>
       <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground font-mono">
