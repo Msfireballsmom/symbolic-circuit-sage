@@ -11,8 +11,10 @@ import QuickSolverTab from "@/components/QuickSolverTab";
 import CurriculumTab from "@/components/CurriculumTab";
 import BodePlotTab from "@/components/BodePlotTab";
 import CircuitSagePanel from "@/components/CircuitSagePanel";
+import SavedProblemsTab from "@/components/SavedProblemsTab";
+import PracticeExamTab from "@/components/PracticeExamTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, GraduationCap, BarChart3, Lightbulb } from "lucide-react";
+import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, GraduationCap, BarChart3, Lightbulb, Bookmark, Trophy, Camera } from "lucide-react";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("quick");
@@ -82,8 +84,16 @@ const Index = () => {
               Bode Plot
             </TabsTrigger>
             <TabsTrigger value="sage" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
-              <Lightbulb className="w-4 h-4" />
-              Circuit Sage
+              <Camera className="w-4 h-4" />
+              Snap & Solve
+            </TabsTrigger>
+            <TabsTrigger value="saved" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Bookmark className="w-4 h-4" />
+              Saved
+            </TabsTrigger>
+            <TabsTrigger value="exam" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
+              <Trophy className="w-4 h-4" />
+              Practice Exam
             </TabsTrigger>
             <TabsTrigger value="reference" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <BookOpen className="w-4 h-4" />
@@ -105,6 +115,8 @@ const Index = () => {
           <TabsContent value="fourier"><FourierTab /></TabsContent>
           <TabsContent value="bode"><BodePlotTab /></TabsContent>
           <TabsContent value="sage"><CircuitSagePanel onNavigateToTab={setActiveTab} /></TabsContent>
+          <TabsContent value="saved"><SavedProblemsTab /></TabsContent>
+          <TabsContent value="exam"><PracticeExamTab /></TabsContent>
           <TabsContent value="reference">
             <div className="p-6 rounded-lg bg-card border border-border space-y-6">
               <h3 className="text-lg font-bold text-foreground">Quick Reference — Circuit Formulas</h3>

@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { solveDC, DCComponent, DCResult } from "@/lib/circuit-solver";
 import StepDisplay from "./StepDisplay";
 import MatrixDisplay from "./MatrixDisplay";
+import { NodeVoltageGraph } from "./ResultGraph";
 import { Plus, Trash2, Play, Zap } from "lucide-react";
 
 const DCAnalysisTab = () => {
@@ -122,6 +123,14 @@ const DCAnalysisTab = () => {
                 Power Balance: {result.powerBalance.balanced ? 'Verified ✓' : 'Imbalance Detected ⚠'}
               </span>
             </div>
+          </div>
+
+          {/* Graph */}
+          <div className="p-4 rounded-lg bg-card border border-border">
+            <h4 className="text-xs font-semibold text-muted-foreground mb-1">Node Voltage Graph</h4>
+            <NodeVoltageGraph
+              data={result.nodeVoltages.map(nv => ({ label: `V${nv.node}`, value: nv.voltage }))}
+            />
           </div>
 
           <MatrixDisplay G={result.matrix.G} I={result.matrix.I} labels={result.matrix.labels} />
