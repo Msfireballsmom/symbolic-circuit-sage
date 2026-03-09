@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { solveDC, DCComponent, DCResult } from "@/lib/circuit-solver";
 import StepDisplay from "./StepDisplay";
 import MatrixDisplay from "./MatrixDisplay";
+import { NodeVoltageGraph } from "./ResultGraph";
 import { Plus, Trash2, Play, Zap } from "lucide-react";
 
 const DCAnalysisTab = () => {
