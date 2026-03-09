@@ -11,8 +11,10 @@ import QuickSolverTab from "@/components/QuickSolverTab";
 import CurriculumTab from "@/components/CurriculumTab";
 import BodePlotTab from "@/components/BodePlotTab";
 import CircuitSagePanel from "@/components/CircuitSagePanel";
+import SavedProblemsTab from "@/components/SavedProblemsTab";
+import PracticeExamTab from "@/components/PracticeExamTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, GraduationCap, BarChart3, Lightbulb } from "lucide-react";
+import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, GraduationCap, BarChart3, Lightbulb, Bookmark, Trophy, Camera } from "lucide-react";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("quick");
