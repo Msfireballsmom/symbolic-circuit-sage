@@ -84,8 +84,16 @@ const Index = () => {
               Bode Plot
             </TabsTrigger>
             <TabsTrigger value="sage" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
-              <Lightbulb className="w-4 h-4" />
-              Circuit Sage
+              <Camera className="w-4 h-4" />
+              Snap & Solve
+            </TabsTrigger>
+            <TabsTrigger value="saved" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Bookmark className="w-4 h-4" />
+              Saved
+            </TabsTrigger>
+            <TabsTrigger value="exam" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
+              <Trophy className="w-4 h-4" />
+              Practice Exam
             </TabsTrigger>
             <TabsTrigger value="reference" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <BookOpen className="w-4 h-4" />
