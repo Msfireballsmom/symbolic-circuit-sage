@@ -115,6 +115,8 @@ const Index = () => {
           <TabsContent value="fourier"><FourierTab /></TabsContent>
           <TabsContent value="bode"><BodePlotTab /></TabsContent>
           <TabsContent value="sage"><CircuitSagePanel onNavigateToTab={setActiveTab} /></TabsContent>
+          <TabsContent value="saved"><SavedProblemsTab /></TabsContent>
+          <TabsContent value="exam"><PracticeExamTab /></TabsContent>
           <TabsContent value="reference">
             <div className="p-6 rounded-lg bg-card border border-border space-y-6">
               <h3 className="text-lg font-bold text-foreground">Quick Reference — Circuit Formulas</h3>
