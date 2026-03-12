@@ -482,28 +482,111 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
         </CardContent>
       </Card>
 
-      {/* Parse Results */}
-      {parseSteps.length > 0 && (
+      {/* Parse Results — Editable Netlist Confirmation */}
+      {parseSteps.length > 0 && parsed && (
         <Card className="border-border animate-slide-up">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              Parsed Components
-              <Badge variant={parsed && parsed.confidence > 0.6 ? "default" : "secondary"} className="text-[9px]">
-                {parsed ? `${(parsed.confidence * 100).toFixed(0)}% confidence` : ''}
+              Extracted Components — Verify & Edit
+              <Badge variant={parsed.confidence > 0.6 ? "default" : "secondary"} className="text-[9px]">
+                {(parsed.confidence * 100).toFixed(0)}% confidence
               </Badge>
               {uploadedImage && <Badge variant="outline" className="text-[9px]">AI Extracted</Badge>}
             </CardTitle>
+            <p className="text-[10px] text-muted-foreground">Review and correct any values before solving. Click a value to edit.</p>
           </CardHeader>
-          <CardContent className="p-4 pt-2">
-            <div className="space-y-1 font-mono text-xs">
-              {parseSteps.map((step, i) => (
-                <div key={i} className={`${step.startsWith('⚠') ? 'text-warning' : step.startsWith('═') ? 'text-primary font-bold' : 'text-equation'}`}>
-                  {step || '\u00A0'}
-                </div>
-              ))}
+          <CardContent className="p-4 pt-2 space-y-3">
+            {/* Editable component table */}
+            <div className="rounded-md border border-border overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="text-left p-2 font-semibold text-muted-foreground">Component</th>
+                    <th className="text-left p-2 font-semibold text-muted-foreground">Label</th>
+                    <th className="text-left p-2 font-semibold text-muted-foreground">Value</th>
+                    <th className="text-left p-2 font-semibold text-muted-foreground">Node A</th>
+                    <th className="text-left p-2 font-semibold text-muted-foreground">Node B</th>
+                    <th className="p-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {parsed.components.map((comp, i) => (
+                    <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30">
+                      <td className="p-2 font-mono text-foreground">{comp.type.replace(/_/g, ' ')}</td>
+                      <td className="p-2">
+                        <input
+                          className="w-full bg-transparent border-b border-border/50 focus:border-primary outline-none font-mono text-foreground px-0.5"
+                          value={comp.label}
+                          onChange={e => {
+                            const updated = { ...parsed };
+                            updated.components[i] = { ...comp, label: e.target.value };
+                            setParsed({ ...updated });
+                          }}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          className="w-20 bg-transparent border-b border-border/50 focus:border-primary outline-none font-mono text-foreground px-0.5"
+                          value={comp.value}
+                          onChange={e => {
+                            const updated = { ...parsed };
+                            updated.components[i] = { ...comp, value: parseFloat(e.target.value) || 0 };
+                            setParsed({ ...updated });
+                          }}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          className="w-12 bg-transparent border-b border-border/50 focus:border-primary outline-none font-mono text-foreground px-0.5"
+                          value={comp.nodeA}
+                          onChange={e => {
+                            const updated = { ...parsed };
+                            updated.components[i] = { ...comp, nodeA: parseInt(e.target.value) || 0 };
+                            setParsed({ ...updated });
+                          }}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          className="w-12 bg-transparent border-b border-border/50 focus:border-primary outline-none font-mono text-foreground px-0.5"
+                          value={comp.nodeB}
+                          onChange={e => {
+                            const updated = { ...parsed };
+                            updated.components[i] = { ...comp, nodeB: parseInt(e.target.value) || 0 };
+                            setParsed({ ...updated });
+                          }}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <button
+                          className="text-destructive/50 hover:text-destructive"
+                          onClick={() => {
+                            const updated = { ...parsed };
+                            updated.components = parsed.components.filter((_, j) => j !== i);
+                            setParsed({ ...updated });
+                          }}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            {parsed && parsed.warnings.length > 0 && (
-              <div className="mt-3 p-2 rounded bg-warning/10 border border-warning/30">
+            
+            {/* Method & analysis info */}
+            <div className="flex flex-wrap gap-2 text-[10px]">
+              <Badge variant="outline">Method: {formatMethod(parsed.method)}</Badge>
+              {parsed.frequency && <Badge variant="outline">f = {parsed.frequency} Hz</Badge>}
+              {parsed.sourceVoltage && <Badge variant="outline">Vs = {parsed.sourceVoltage}V</Badge>}
+            </div>
+
+            {parsed.warnings.length > 0 && (
+              <div className="p-2 rounded bg-warning/10 border border-warning/30">
                 <div className="flex items-start gap-2 text-xs text-warning">
                   <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                   <div>
