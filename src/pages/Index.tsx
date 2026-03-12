@@ -8,20 +8,20 @@ import ACPhasorTab from "@/components/ACPhasorTab";
 import LaplaceTab from "@/components/LaplaceTab";
 import FourierTab from "@/components/FourierTab";
 import QuickSolverTab from "@/components/QuickSolverTab";
-import CurriculumTab from "@/components/CurriculumTab";
 import BodePlotTab from "@/components/BodePlotTab";
 import CircuitSagePanel from "@/components/CircuitSagePanel";
 import SavedProblemsTab from "@/components/SavedProblemsTab";
 import PracticeExamTab from "@/components/PracticeExamTab";
+import CheckHomeworkTab from "@/components/CheckHomeworkTab";
 import ProGate from "@/components/ProGate";
 import TestModeBanner from "@/components/TestModeBanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, GraduationCap, BarChart3, Bookmark, Trophy, Camera, Crown } from "lucide-react";
+import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, BarChart3, Bookmark, Trophy, Camera, Crown, BookCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 // Free features: quick, reference
 // Pro features: everything else
-const PRO_TABS = ["dc", "mesh", "transient", "rlc", "ac", "laplace", "fourier", "bode", "sage", "exam"];
+const PRO_TABS = ["dc", "mesh", "transient", "rlc", "ac", "laplace", "fourier", "bode", "sage", "exam", "homework"];
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("quick");
@@ -45,15 +45,15 @@ const Index = () => {
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-mono text-primary mb-4">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse-glow" />
-              Circuit Analysis Engine v3
+              Circuit Analysis Engine v4
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-3">
-              Solve any linear circuit with
+              Solve any circuit with
               <span className="text-primary glow-text"> verified math</span>
             </h1>
             <p className="text-muted-foreground text-sm sm:text-base max-w-xl leading-relaxed">
-              Input your values, get instant step-by-step solutions. Ohm's Law, voltage/current dividers, 
-              series/parallel, Thévenin/Norton, transients, AC phasors — with power balance verification.
+              Upload assignments, get instant step-by-step solutions. DC, AC, transient, op-amps, Laplace, Fourier — 
+              with power balance verification. Check your homework before you submit.
             </p>
           </div>
         </div>
@@ -112,6 +112,11 @@ const Index = () => {
               Snap & Solve
               {!isPro && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
+            <TabsTrigger value="homework" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
+              <BookCheck className="w-4 h-4" />
+              Check Homework
+              {!isPro && <Crown className="w-3 h-3 text-primary/50" />}
+            </TabsTrigger>
             <TabsTrigger value="saved" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Bookmark className="w-4 h-4" />
               Saved
@@ -125,10 +130,6 @@ const Index = () => {
               <BookOpen className="w-4 h-4" />
               Reference
             </TabsTrigger>
-            <TabsTrigger value="curriculum" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <GraduationCap className="w-4 h-4" />
-              Curriculum
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="quick"><QuickSolverTab /></TabsContent>
@@ -141,10 +142,10 @@ const Index = () => {
           <TabsContent value="fourier">{renderTabContent("fourier", <FourierTab />, "Fourier Series Analysis")}</TabsContent>
           <TabsContent value="bode">{renderTabContent("bode", <BodePlotTab />, "Bode Plot Generator")}</TabsContent>
           <TabsContent value="sage">{renderTabContent("sage", <CircuitSagePanel onNavigateToTab={setActiveTab} />, "Snap & Solve — AI Circuit Reader")}</TabsContent>
+          <TabsContent value="homework">{renderTabContent("homework", <CheckHomeworkTab />, "Check My Homework")}</TabsContent>
           <TabsContent value="saved"><SavedProblemsTab /></TabsContent>
           <TabsContent value="exam">{renderTabContent("exam", <PracticeExamTab />, "Practice Exam Mode")}</TabsContent>
           <TabsContent value="reference">
-            {/* Reference content - FREE */}
             <div className="p-6 rounded-lg bg-card border border-border space-y-6">
               <h3 className="text-lg font-bold text-foreground">Quick Reference — Circuit Formulas</h3>
               <div className="grid sm:grid-cols-2 gap-6">
@@ -214,7 +215,6 @@ const Index = () => {
               </div>
             </div>
           </TabsContent>
-          <TabsContent value="curriculum"><CurriculumTab /></TabsContent>
         </Tabs>
       </main>
 
@@ -222,7 +222,7 @@ const Index = () => {
       <footer className="border-t border-border py-6 mt-8">
         <div className="container px-4 flex items-center justify-between text-xs text-muted-foreground">
           <span>Circuit Solver Pro — Advanced Analysis Engine</span>
-          <span className="font-mono">v3.0</span>
+          <span className="font-mono">v4.0</span>
         </div>
       </footer>
     </div>

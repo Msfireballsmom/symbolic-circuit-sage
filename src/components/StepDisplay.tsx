@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { CheckCircle, AlertTriangle, ChevronRight, ChevronDown, Copy, Check } from "lucide-react";
+import { CheckCircle, AlertTriangle, ChevronRight, ChevronDown, Copy, Check, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { exportSolutionAsPDF } from "@/lib/pdf-export";
 
 interface StepDisplayProps {
   steps: string[];
   defaultExpanded?: boolean;
+  title?: string;
+  results?: { label: string; value: string }[];
 }
 
-const StepDisplay = ({ steps, defaultExpanded = true }: StepDisplayProps) => {
+const StepDisplay = ({ steps, defaultExpanded = true, title, results }: StepDisplayProps) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [copied, setCopied] = useState(false);
 
@@ -89,15 +92,26 @@ const StepDisplay = ({ steps, defaultExpanded = true }: StepDisplayProps) => {
           Step-by-Step Solution
           <span className="text-xs text-muted-foreground font-normal ml-1">({steps.filter(s => s.trim()).length} steps)</span>
         </button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
-          onClick={handleCopy}
-        >
-          {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
-          {copied ? 'Copied' : 'Copy'}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+            onClick={() => exportSolutionAsPDF(title || 'Circuit Solution', steps, results)}
+          >
+            <FileDown className="w-3 h-3" />
+            PDF
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+            onClick={handleCopy}
+          >
+            {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
+            {copied ? 'Copied' : 'Copy'}
+          </Button>
+        </div>
       </div>
 
       {expanded && (
