@@ -92,15 +92,26 @@ const StepDisplay = ({ steps, defaultExpanded = true, title, results }: StepDisp
           Step-by-Step Solution
           <span className="text-xs text-muted-foreground font-normal ml-1">({steps.filter(s => s.trim()).length} steps)</span>
         </button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
-          onClick={handleCopy}
-        >
-          {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
-          {copied ? 'Copied' : 'Copy'}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+            onClick={() => exportSolutionAsPDF(title || 'Circuit Solution', steps, results)}
+          >
+            <FileDown className="w-3 h-3" />
+            PDF
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+            onClick={handleCopy}
+          >
+            {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
+            {copied ? 'Copied' : 'Copy'}
+          </Button>
+        </div>
       </div>
 
       {expanded && (
