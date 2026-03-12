@@ -176,32 +176,30 @@ const AdminPage = () => {
     URL.revokeObjectURL(url);
   };
 
-  if (!authenticated) {
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-primary animate-pulse text-sm font-mono">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user || !isAdmin) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto">
-              <Shield className="w-8 h-8 text-primary" />
+            <div className="w-16 h-16 rounded-2xl bg-destructive/10 border border-destructive/30 flex items-center justify-center mx-auto">
+              <Shield className="w-8 h-8 text-destructive" />
             </div>
-            <h1 className="text-xl font-bold text-foreground">Admin Access</h1>
-            <p className="text-sm text-muted-foreground">Enter password to access self-test panel</p>
+            <h1 className="text-xl font-bold text-foreground">Admin Access Required</h1>
+            <p className="text-sm text-muted-foreground">
+              {!user ? "You must be signed in with an admin account." : "Your account does not have admin privileges."}
+            </p>
           </div>
           <div className="space-y-3">
-            <Input
-              type="password"
-              value={password}
-              onChange={e => { setPassword(e.target.value); setPassError(false); }}
-              onKeyDown={e => e.key === 'Enter' && handleLogin()}
-              placeholder="Password"
-              className={`h-10 font-mono ${passError ? 'border-destructive' : ''}`}
-            />
-            {passError && <p className="text-xs text-destructive">Wrong password</p>}
-            <Button onClick={handleLogin} className="w-full gap-2">
-              <Shield className="w-4 h-4" /> Enter Admin
-            </Button>
-            <Button variant="ghost" className="w-full text-xs" onClick={() => navigate('/')}>
-              <ArrowLeft className="w-3 h-3 mr-1" /> Back to App
+            <Button variant="ghost" className="w-full text-xs" onClick={() => navigate(user ? '/' : '/auth')}>
+              <ArrowLeft className="w-3 h-3 mr-1" /> {user ? 'Back to App' : 'Sign In'}
             </Button>
           </div>
         </div>
