@@ -14,7 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      exam_history: {
+        Row: {
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          percentage: number
+          score: number
+          topics: Json | null
+          total: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          percentage: number
+          score: number
+          topics?: Json | null
+          total: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          percentage?: number
+          score?: number
+          topics?: Json | null
+          total?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          stripe_customer_id: string | null
+          subscription_tier: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          stripe_customer_id?: string | null
+          subscription_tier?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          stripe_customer_id?: string | null
+          subscription_tier?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      saved_problems: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          id: string
+          inputs: Json | null
+          solver_tab: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description: string
+          id?: string
+          inputs?: Json | null
+          solver_tab?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          inputs?: Json | null
+          solver_tab?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
