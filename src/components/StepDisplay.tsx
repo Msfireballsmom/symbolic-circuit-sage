@@ -10,7 +10,7 @@ interface StepDisplayProps {
   results?: { label: string; value: string }[];
 }
 
-const StepDisplay = ({ steps, defaultExpanded = true }: StepDisplayProps) => {
+const StepDisplay = ({ steps, defaultExpanded = true, title, results }: StepDisplayProps) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [copied, setCopied] = useState(false);
 
