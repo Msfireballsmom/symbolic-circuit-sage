@@ -109,6 +109,16 @@ const AdminPage = () => {
     await handleRunTests();
     setActiveTab('ai');
     await handleRunAITests();
+    // Save combined audit log
+    const totalPassed = (report?.passed || 0) + (aiReport?.passed || 0);
+    const totalTests = (report?.totalTests || 0) + (aiReport?.totalTests || 0);
+    const totalFailed = (report?.failed || 0) + (aiReport?.failed || 0);
+    const totalErrors = (report?.errors || 0) + (aiReport?.errors || 0);
+    const totalDuration = (report?.durationMs || 0) + (aiReport?.durationMs || 0);
+    await saveAuditLog(totalTests, totalPassed, totalFailed, totalErrors, totalDuration, [
+      ...(report?.results || []).map(r => ({ name: r.name, status: r.status, type: 'hardcoded' })),
+      ...(aiReport?.results || []).map(r => ({ title: r.title, status: r.status, type: 'ai' })),
+    ]);
   };
 
   const exportReport = () => {
