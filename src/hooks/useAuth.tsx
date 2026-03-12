@@ -15,6 +15,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   isPro: boolean;
+  isAdmin: boolean;
   loading: boolean;
   isTestMode: boolean;
   testTier: "free" | "pro" | null;
@@ -51,6 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isTestMode, setIsTestMode] = useState(false);
   const [testTier, setTestTier] = useState<"free" | "pro" | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
@@ -59,6 +61,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .eq("id", userId)
       .single();
     if (data) setProfile(data as Profile);
+    // Check admin role
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    setIsAdmin(!!roleData);
   };
 
   const refreshProfile = async () => {
@@ -134,6 +144,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     <AuthContext.Provider value={{
       user, session, profile,
       isPro: isTestMode ? testTier === "pro" : profile?.subscription_tier === "pro",
+      isAdmin,
       loading, isTestMode, testTier,
       signUp, signIn, signOut, refreshProfile,
       enterTestMode, exitTestMode,

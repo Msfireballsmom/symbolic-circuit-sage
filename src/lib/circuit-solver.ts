@@ -46,6 +46,7 @@ export interface DCResult {
   nodeVoltages: { node: number; voltage: number }[];
   branchCurrents: { component: string; current: number }[];
   powerBalance: { delivered: number; absorbed: number; balanced: boolean };
+  residuals: { type: string; location: string; value: number; pass: boolean }[];
   steps: string[];
   matrix: { G: number[][]; I: number[]; labels: string[] };
 }
@@ -169,10 +170,36 @@ export function solveDC(components: DCComponent[]): DCResult {
   steps.push(`Power audit: P_delivered = ${totalDelivered.toFixed(4)}W, P_absorbed = ${totalAbsorbed.toFixed(4)}W`);
   steps.push(balanced ? `✓ Power balance verified (KCL satisfied)` : `⚠ Power imbalance detected — review circuit topology`);
 
+  // Compute KCL residuals at each node
+  const residuals: DCResult['residuals'] = [];
+  nodeList.forEach((node) => {
+    let sumCurrents = 0;
+    components.forEach(c => {
+      const vA = c.nodeA === 0 ? 0 : voltages[idx(c.nodeA)];
+      const vB = c.nodeB === 0 ? 0 : voltages[idx(c.nodeB)];
+      if (c.type === 'resistor') {
+        const I_branch = (vA - vB) / c.value;
+        if (c.nodeA === node) sumCurrents -= I_branch;
+        if (c.nodeB === node) sumCurrents += I_branch;
+      } else if (c.type === 'current_source') {
+        if (c.nodeA === node) sumCurrents -= c.value;
+        if (c.nodeB === node) sumCurrents += c.value;
+      }
+    });
+    const pass = Math.abs(sumCurrents) < 1e-6;
+    residuals.push({ type: 'KCL', location: `Node ${node}`, value: Math.abs(sumCurrents), pass });
+    steps.push(`${pass ? '✓' : '⚠'} KCL residual at Node ${node}: ΣI = ${sumCurrents.toExponential(3)} A`);
+  });
+
+  // Power balance residual
+  const powerResidual = Math.abs(totalDelivered - totalAbsorbed);
+  residuals.push({ type: 'Power', location: 'Circuit', value: powerResidual, pass: balanced });
+
   return {
     nodeVoltages,
     branchCurrents,
     powerBalance: { delivered: totalDelivered, absorbed: totalAbsorbed, balanced },
+    residuals,
     steps,
     matrix: { G, I, labels },
   };

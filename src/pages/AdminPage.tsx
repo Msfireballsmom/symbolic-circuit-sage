@@ -1,44 +1,63 @@
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { runAllTests, TestResult, TestReport } from "@/lib/self-test";
 import { runAITests, AITestResult, AITestReport } from "@/lib/ai-test-runner";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Shield, Play, CheckCircle, XCircle, AlertTriangle, Clock, ChevronDown,
-  ChevronUp, Download, ArrowLeft, Loader2, FlaskConical, Zap, Brain, Globe, Sparkles
+  ChevronUp, Download, ArrowLeft, Loader2, FlaskConical, Zap, Brain, Globe, Sparkles, History
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const ADMIN_PASSWORD = "admin123";
-
 const AdminPage = () => {
-  const [authenticated, setAuthenticated] = useState(false);
-  const [password, setPassword] = useState("");
-  const [passError, setPassError] = useState(false);
-
-  // Hardcoded tests
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const [isRunning, setIsRunning] = useState(false);
   const [liveResults, setLiveResults] = useState<TestResult[]>([]);
   const [report, setReport] = useState<TestReport | null>(null);
-
-  // AI tests
   const [isRunningAI, setIsRunningAI] = useState(false);
   const [aiResults, setAiResults] = useState<AITestResult[]>([]);
   const [aiReport, setAiReport] = useState<AITestReport | null>(null);
-
   const [expandedTest, setExpandedTest] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'hardcoded' | 'ai'>('hardcoded');
+  const [activeTab, setActiveTab] = useState<'hardcoded' | 'ai' | 'history'>('hardcoded');
+  const [auditLog, setAuditLog] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    if (password === ADMIN_PASSWORD) {
-      setAuthenticated(true);
-      setPassError(false);
-    } else {
-      setPassError(true);
+  useEffect(() => {
+    if (isAdmin && activeTab === 'history') {
+      loadAuditLog();
     }
+  }, [isAdmin, activeTab]);
+
+  const loadAuditLog = async () => {
+    setLoadingHistory(true);
+    const { data } = await supabase
+      .from("benchmark_runs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setAuditLog(data || []);
+    setLoadingHistory(false);
+  };
+
+  const saveAuditLog = async (totalTests: number, passed: number, failed: number, errors: number, durationMs: number, results: any[]) => {
+    if (!user) return;
+    await supabase.from("benchmark_runs").insert({
+      user_id: user.id,
+      run_type: 'full',
+      total_tests: totalTests,
+      passed,
+      failed,
+      errors,
+      accuracy: totalTests > 0 ? (passed / totalTests) * 100 : 0,
+      duration_ms: Math.round(durationMs),
+      results: results as any,
+      solver_version: 'v4.0',
+    });
   };
 
   const handleRunTests = async () => {
@@ -90,6 +109,16 @@ const AdminPage = () => {
     await handleRunTests();
     setActiveTab('ai');
     await handleRunAITests();
+    // Save combined audit log
+    const totalPassed = (report?.passed || 0) + (aiReport?.passed || 0);
+    const totalTests = (report?.totalTests || 0) + (aiReport?.totalTests || 0);
+    const totalFailed = (report?.failed || 0) + (aiReport?.failed || 0);
+    const totalErrors = (report?.errors || 0) + (aiReport?.errors || 0);
+    const totalDuration = (report?.durationMs || 0) + (aiReport?.durationMs || 0);
+    await saveAuditLog(totalTests, totalPassed, totalFailed, totalErrors, totalDuration, [
+      ...(report?.results || []).map(r => ({ name: r.name, status: r.status, type: 'hardcoded' })),
+      ...(aiReport?.results || []).map(r => ({ title: r.title, status: r.status, type: 'ai' })),
+    ]);
   };
 
   const exportReport = () => {
@@ -147,32 +176,30 @@ const AdminPage = () => {
     URL.revokeObjectURL(url);
   };
 
-  if (!authenticated) {
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-primary animate-pulse text-sm font-mono">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user || !isAdmin) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto">
-              <Shield className="w-8 h-8 text-primary" />
+            <div className="w-16 h-16 rounded-2xl bg-destructive/10 border border-destructive/30 flex items-center justify-center mx-auto">
+              <Shield className="w-8 h-8 text-destructive" />
             </div>
-            <h1 className="text-xl font-bold text-foreground">Admin Access</h1>
-            <p className="text-sm text-muted-foreground">Enter password to access self-test panel</p>
+            <h1 className="text-xl font-bold text-foreground">Admin Access Required</h1>
+            <p className="text-sm text-muted-foreground">
+              {!user ? "You must be signed in with an admin account." : "Your account does not have admin privileges."}
+            </p>
           </div>
           <div className="space-y-3">
-            <Input
-              type="password"
-              value={password}
-              onChange={e => { setPassword(e.target.value); setPassError(false); }}
-              onKeyDown={e => e.key === 'Enter' && handleLogin()}
-              placeholder="Password"
-              className={`h-10 font-mono ${passError ? 'border-destructive' : ''}`}
-            />
-            {passError && <p className="text-xs text-destructive">Wrong password</p>}
-            <Button onClick={handleLogin} className="w-full gap-2">
-              <Shield className="w-4 h-4" /> Enter Admin
-            </Button>
-            <Button variant="ghost" className="w-full text-xs" onClick={() => navigate('/')}>
-              <ArrowLeft className="w-3 h-3 mr-1" /> Back to App
+            <Button variant="ghost" className="w-full text-xs" onClick={() => navigate(user ? '/' : '/auth')}>
+              <ArrowLeft className="w-3 h-3 mr-1" /> {user ? 'Back to App' : 'Sign In'}
             </Button>
           </div>
         </div>
@@ -320,6 +347,13 @@ const AdminPage = () => {
             <Brain className="w-3.5 h-3.5 inline mr-1.5" />
             AI Novel Problems (10)
             {aiReport && <Badge variant="outline" className="ml-2 text-[10px]">{aiReport.passed}/{aiReport.totalTests}</Badge>}
+          </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'history' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setActiveTab('history')}
+          >
+            <History className="w-3.5 h-3.5 inline mr-1.5" />
+            Audit Log
           </button>
         </div>
 
@@ -572,6 +606,63 @@ const AdminPage = () => {
               </div>
             )}
           </>
+        )}
+
+        {/* HISTORY TAB */}
+        {activeTab === 'history' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <History className="w-4 h-4 text-primary" />
+                Benchmark Audit Log
+              </h3>
+              <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={loadAuditLog} disabled={loadingHistory}>
+                {loadingHistory ? <Loader2 className="w-3 h-3 animate-spin" /> : <History className="w-3 h-3" />}
+                Refresh
+              </Button>
+            </div>
+            {auditLog.length === 0 ? (
+              <div className="p-6 rounded-xl bg-card border border-border text-center">
+                <p className="text-sm text-muted-foreground">No benchmark runs recorded yet. Run a full test suite to create the first audit entry.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {auditLog.map((run: any) => (
+                  <div key={run.id} className="p-4 rounded-lg bg-card border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={run.accuracy >= 100 ? "default" : "secondary"} className="text-[10px]">
+                          {Number(run.accuracy).toFixed(1)}%
+                        </Badge>
+                        <span className="text-xs font-mono text-muted-foreground">{run.solver_version}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(run.created_at).toLocaleDateString()} {new Date(run.created_at).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 text-xs">
+                      <div className="text-center p-2 rounded bg-muted/50">
+                        <p className="font-mono font-bold text-foreground">{run.total_tests}</p>
+                        <p className="text-muted-foreground">Total</p>
+                      </div>
+                      <div className="text-center p-2 rounded bg-muted/50">
+                        <p className="font-mono font-bold text-success">{run.passed}</p>
+                        <p className="text-muted-foreground">Passed</p>
+                      </div>
+                      <div className="text-center p-2 rounded bg-muted/50">
+                        <p className="font-mono font-bold text-destructive">{run.failed}</p>
+                        <p className="text-muted-foreground">Failed</p>
+                      </div>
+                      <div className="text-center p-2 rounded bg-muted/50">
+                        <p className="font-mono font-bold text-foreground">{(run.duration_ms / 1000).toFixed(1)}s</p>
+                        <p className="text-muted-foreground">Duration</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
