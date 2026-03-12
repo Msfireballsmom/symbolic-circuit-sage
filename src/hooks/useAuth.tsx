@@ -144,6 +144,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     <AuthContext.Provider value={{
       user, session, profile,
       isPro: isTestMode ? testTier === "pro" : profile?.subscription_tier === "pro",
+      isAdmin,
       loading, isTestMode, testTier,
       signUp, signIn, signOut, refreshProfile,
       enterTestMode, exitTestMode,
