@@ -123,6 +123,25 @@ const DCAnalysisTab = () => {
                 Power Balance: {result.powerBalance.balanced ? 'Verified ✓' : 'Imbalance Detected ⚠'}
               </span>
             </div>
+
+            {/* Verification Residuals */}
+            {result.residuals && result.residuals.length > 0 && (
+              <div className="mt-3 p-3 rounded-lg bg-muted/30 border border-border">
+                <h4 className="text-xs font-semibold text-muted-foreground mb-2">Verification Residuals</h4>
+                <div className="space-y-1">
+                  {result.residuals.map((r, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs font-mono">
+                      <span className={`w-1.5 h-1.5 rounded-full ${r.pass ? 'bg-success' : 'bg-warning'}`} />
+                      <span className="text-muted-foreground w-12">{r.type}</span>
+                      <span className="text-foreground">{r.location}</span>
+                      <span className={`ml-auto ${r.pass ? 'text-success' : 'text-warning'}`}>
+                        {r.value.toExponential(2)} {r.pass ? '✓' : '⚠'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Graph */}
