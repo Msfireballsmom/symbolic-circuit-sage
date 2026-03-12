@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { CheckCircle, AlertTriangle, ChevronRight, ChevronDown, Copy, Check } from "lucide-react";
+import { CheckCircle, AlertTriangle, ChevronRight, ChevronDown, Copy, Check, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { exportSolutionAsPDF } from "@/lib/pdf-export";
 
 interface StepDisplayProps {
   steps: string[];
   defaultExpanded?: boolean;
+  title?: string;
+  results?: { label: string; value: string }[];
 }
 
 const StepDisplay = ({ steps, defaultExpanded = true }: StepDisplayProps) => {
