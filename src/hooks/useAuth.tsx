@@ -15,6 +15,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   isPro: boolean;
+  isAdmin: boolean;
   loading: boolean;
   isTestMode: boolean;
   testTier: "free" | "pro" | null;
