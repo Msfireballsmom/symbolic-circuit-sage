@@ -46,6 +46,7 @@ export interface DCResult {
   nodeVoltages: { node: number; voltage: number }[];
   branchCurrents: { component: string; current: number }[];
   powerBalance: { delivered: number; absorbed: number; balanced: boolean };
+  residuals: { type: string; location: string; value: number; pass: boolean }[];
   steps: string[];
   matrix: { G: number[][]; I: number[]; labels: string[] };
 }
