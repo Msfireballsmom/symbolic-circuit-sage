@@ -1,44 +1,63 @@
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { runAllTests, TestResult, TestReport } from "@/lib/self-test";
 import { runAITests, AITestResult, AITestReport } from "@/lib/ai-test-runner";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Shield, Play, CheckCircle, XCircle, AlertTriangle, Clock, ChevronDown,
-  ChevronUp, Download, ArrowLeft, Loader2, FlaskConical, Zap, Brain, Globe, Sparkles
+  ChevronUp, Download, ArrowLeft, Loader2, FlaskConical, Zap, Brain, Globe, Sparkles, History
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const ADMIN_PASSWORD = "admin123";
-
 const AdminPage = () => {
-  const [authenticated, setAuthenticated] = useState(false);
-  const [password, setPassword] = useState("");
-  const [passError, setPassError] = useState(false);
-
-  // Hardcoded tests
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const [isRunning, setIsRunning] = useState(false);
   const [liveResults, setLiveResults] = useState<TestResult[]>([]);
   const [report, setReport] = useState<TestReport | null>(null);
-
-  // AI tests
   const [isRunningAI, setIsRunningAI] = useState(false);
   const [aiResults, setAiResults] = useState<AITestResult[]>([]);
   const [aiReport, setAiReport] = useState<AITestReport | null>(null);
-
   const [expandedTest, setExpandedTest] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'hardcoded' | 'ai'>('hardcoded');
+  const [activeTab, setActiveTab] = useState<'hardcoded' | 'ai' | 'history'>('hardcoded');
+  const [auditLog, setAuditLog] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    if (password === ADMIN_PASSWORD) {
-      setAuthenticated(true);
-      setPassError(false);
-    } else {
-      setPassError(true);
+  useEffect(() => {
+    if (isAdmin && activeTab === 'history') {
+      loadAuditLog();
     }
+  }, [isAdmin, activeTab]);
+
+  const loadAuditLog = async () => {
+    setLoadingHistory(true);
+    const { data } = await supabase
+      .from("benchmark_runs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setAuditLog(data || []);
+    setLoadingHistory(false);
+  };
+
+  const saveAuditLog = async (totalTests: number, passed: number, failed: number, errors: number, durationMs: number, results: any[]) => {
+    if (!user) return;
+    await supabase.from("benchmark_runs").insert({
+      user_id: user.id,
+      run_type: 'full',
+      total_tests: totalTests,
+      passed,
+      failed,
+      errors,
+      accuracy: totalTests > 0 ? (passed / totalTests) * 100 : 0,
+      duration_ms: Math.round(durationMs),
+      results: results as any,
+      solver_version: 'v4.0',
+    });
   };
 
   const handleRunTests = async () => {
