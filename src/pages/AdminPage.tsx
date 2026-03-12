@@ -607,6 +607,63 @@ const AdminPage = () => {
             )}
           </>
         )}
+
+        {/* HISTORY TAB */}
+        {activeTab === 'history' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <History className="w-4 h-4 text-primary" />
+                Benchmark Audit Log
+              </h3>
+              <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={loadAuditLog} disabled={loadingHistory}>
+                {loadingHistory ? <Loader2 className="w-3 h-3 animate-spin" /> : <History className="w-3 h-3" />}
+                Refresh
+              </Button>
+            </div>
+            {auditLog.length === 0 ? (
+              <div className="p-6 rounded-xl bg-card border border-border text-center">
+                <p className="text-sm text-muted-foreground">No benchmark runs recorded yet. Run a full test suite to create the first audit entry.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {auditLog.map((run: any) => (
+                  <div key={run.id} className="p-4 rounded-lg bg-card border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={run.accuracy >= 100 ? "default" : "secondary"} className="text-[10px]">
+                          {Number(run.accuracy).toFixed(1)}%
+                        </Badge>
+                        <span className="text-xs font-mono text-muted-foreground">{run.solver_version}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(run.created_at).toLocaleDateString()} {new Date(run.created_at).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 text-xs">
+                      <div className="text-center p-2 rounded bg-muted/50">
+                        <p className="font-mono font-bold text-foreground">{run.total_tests}</p>
+                        <p className="text-muted-foreground">Total</p>
+                      </div>
+                      <div className="text-center p-2 rounded bg-muted/50">
+                        <p className="font-mono font-bold text-success">{run.passed}</p>
+                        <p className="text-muted-foreground">Passed</p>
+                      </div>
+                      <div className="text-center p-2 rounded bg-muted/50">
+                        <p className="font-mono font-bold text-destructive">{run.failed}</p>
+                        <p className="text-muted-foreground">Failed</p>
+                      </div>
+                      <div className="text-center p-2 rounded bg-muted/50">
+                        <p className="font-mono font-bold text-foreground">{(run.duration_ms / 1000).toFixed(1)}s</p>
+                        <p className="text-muted-foreground">Duration</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
