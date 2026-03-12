@@ -348,6 +348,13 @@ const AdminPage = () => {
             AI Novel Problems (10)
             {aiReport && <Badge variant="outline" className="ml-2 text-[10px]">{aiReport.passed}/{aiReport.totalTests}</Badge>}
           </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'history' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setActiveTab('history')}
+          >
+            <History className="w-3.5 h-3.5 inline mr-1.5" />
+            Audit Log
+          </button>
         </div>
 
         {/* Progress bars */}
