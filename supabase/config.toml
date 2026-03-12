@@ -2,3 +2,6 @@ project_id = "xawdlkjemzpuztyyxtae"
 
 [functions.circuit-extract]
 verify_jwt = false
+
+[functions.generate-test-problems]
+verify_jwt = false
