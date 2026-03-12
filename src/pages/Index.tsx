@@ -13,14 +13,30 @@ import BodePlotTab from "@/components/BodePlotTab";
 import CircuitSagePanel from "@/components/CircuitSagePanel";
 import SavedProblemsTab from "@/components/SavedProblemsTab";
 import PracticeExamTab from "@/components/PracticeExamTab";
+import ProGate from "@/components/ProGate";
+import TestModeBanner from "@/components/TestModeBanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, GraduationCap, BarChart3, Lightbulb, Bookmark, Trophy, Camera } from "lucide-react";
+import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, GraduationCap, BarChart3, Bookmark, Trophy, Camera, Crown } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+
+// Free features: quick, reference
+// Pro features: everything else
+const PRO_TABS = ["dc", "mesh", "transient", "rlc", "ac", "laplace", "fourier", "bode", "sage", "exam"];
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("quick");
+  const { isPro } = useAuth();
+
+  const renderTabContent = (tabId: string, content: React.ReactNode, featureName: string) => {
+    if (PRO_TABS.includes(tabId) && !isPro) {
+      return <ProGate featureName={featureName}>{content}</ProGate>;
+    }
+    return content;
+  };
 
   return (
     <div className="min-h-screen bg-background grid-bg">
+      <TestModeBanner />
       <SolverHeader />
 
       {/* Hero */}
@@ -54,38 +70,47 @@ const Index = () => {
             <TabsTrigger value="dc" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Zap className="w-4 h-4" />
               <span className="hidden sm:inline">DC</span> Nodal
+              {!isPro && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
             <TabsTrigger value="mesh" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <GitBranch className="w-4 h-4" />
               Mesh
+              {!isPro && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
             <TabsTrigger value="transient" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Timer className="w-4 h-4" />
               <span className="hidden sm:inline">1st-Order</span> Transient
+              {!isPro && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
             <TabsTrigger value="rlc" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Activity className="w-4 h-4" />
               <span className="hidden sm:inline">2nd-Order</span> RLC
+              {!isPro && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
             <TabsTrigger value="ac" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Waves className="w-4 h-4" />
               AC Phasor
+              {!isPro && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
             <TabsTrigger value="laplace" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Sigma className="w-4 h-4" />
               Laplace
+              {!isPro && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
             <TabsTrigger value="fourier" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <AudioWaveform className="w-4 h-4" />
               Fourier
+              {!isPro && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
             <TabsTrigger value="bode" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <BarChart3 className="w-4 h-4" />
               Bode Plot
+              {!isPro && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
             <TabsTrigger value="sage" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
               <Camera className="w-4 h-4" />
               Snap & Solve
+              {!isPro && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
             <TabsTrigger value="saved" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Bookmark className="w-4 h-4" />
@@ -94,6 +119,7 @@ const Index = () => {
             <TabsTrigger value="exam" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
               <Trophy className="w-4 h-4" />
               Practice Exam
+              {!isPro && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
             <TabsTrigger value="reference" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <BookOpen className="w-4 h-4" />
@@ -106,21 +132,21 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="quick"><QuickSolverTab /></TabsContent>
-          <TabsContent value="dc"><DCAnalysisTab /></TabsContent>
-          <TabsContent value="mesh"><MeshAnalysisTab /></TabsContent>
-          <TabsContent value="transient"><TransientTab /></TabsContent>
-          <TabsContent value="rlc"><RLCTransientTab /></TabsContent>
-          <TabsContent value="ac"><ACPhasorTab /></TabsContent>
-          <TabsContent value="laplace"><LaplaceTab /></TabsContent>
-          <TabsContent value="fourier"><FourierTab /></TabsContent>
-          <TabsContent value="bode"><BodePlotTab /></TabsContent>
-          <TabsContent value="sage"><CircuitSagePanel onNavigateToTab={setActiveTab} /></TabsContent>
+          <TabsContent value="dc">{renderTabContent("dc", <DCAnalysisTab />, "DC Nodal Analysis")}</TabsContent>
+          <TabsContent value="mesh">{renderTabContent("mesh", <MeshAnalysisTab />, "Mesh Analysis")}</TabsContent>
+          <TabsContent value="transient">{renderTabContent("transient", <TransientTab />, "1st-Order Transient Analysis")}</TabsContent>
+          <TabsContent value="rlc">{renderTabContent("rlc", <RLCTransientTab />, "2nd-Order RLC Analysis")}</TabsContent>
+          <TabsContent value="ac">{renderTabContent("ac", <ACPhasorTab />, "AC Phasor Analysis")}</TabsContent>
+          <TabsContent value="laplace">{renderTabContent("laplace", <LaplaceTab />, "Laplace Transform Solver")}</TabsContent>
+          <TabsContent value="fourier">{renderTabContent("fourier", <FourierTab />, "Fourier Series Analysis")}</TabsContent>
+          <TabsContent value="bode">{renderTabContent("bode", <BodePlotTab />, "Bode Plot Generator")}</TabsContent>
+          <TabsContent value="sage">{renderTabContent("sage", <CircuitSagePanel onNavigateToTab={setActiveTab} />, "Snap & Solve — AI Circuit Reader")}</TabsContent>
           <TabsContent value="saved"><SavedProblemsTab /></TabsContent>
-          <TabsContent value="exam"><PracticeExamTab /></TabsContent>
+          <TabsContent value="exam">{renderTabContent("exam", <PracticeExamTab />, "Practice Exam Mode")}</TabsContent>
           <TabsContent value="reference">
+            {/* Reference content - FREE */}
             <div className="p-6 rounded-lg bg-card border border-border space-y-6">
               <h3 className="text-lg font-bold text-foreground">Quick Reference — Circuit Formulas</h3>
-              
               <div className="grid sm:grid-cols-2 gap-6">
                 <div className="space-y-3">
                   <h4 className="text-sm font-semibold text-primary">DC Analysis</h4>
@@ -135,7 +161,6 @@ const Index = () => {
                     <p>Current Divider: I₁ = I_s × R₂/(R₁+R₂)</p>
                   </div>
                 </div>
-
                 <div className="space-y-3">
                   <h4 className="text-sm font-semibold text-primary">Network Theorems</h4>
                   <div className="space-y-1 font-mono text-xs text-equation">
@@ -146,7 +171,6 @@ const Index = () => {
                     <p>Superposition: analyze one source at a time</p>
                   </div>
                 </div>
-
                 <div className="space-y-3">
                   <h4 className="text-sm font-semibold text-primary">Transient Analysis</h4>
                   <div className="space-y-1 font-mono text-xs text-equation">
@@ -158,7 +182,6 @@ const Index = () => {
                     <p>At t = 5τ: ~steady state (99.3%)</p>
                   </div>
                 </div>
-
                 <div className="space-y-3">
                   <h4 className="text-sm font-semibold text-primary">AC / Phasor Domain</h4>
                   <div className="space-y-1 font-mono text-xs text-equation">
@@ -167,123 +190,26 @@ const Index = () => {
                     <p>Z_C = 1/(jωC) = -j/(ωC)</p>
                     <p>V = IZ (Ohm's Law for phasors)</p>
                     <p>ω = 2πf</p>
-                    <p>P = VIcosθ (real power)</p>
-                    <p>Q = VIsinθ (reactive power)</p>
-                    <p>S = VI (apparent power)</p>
+                    <p>P = VIcosθ, Q = VIsinθ, S = VI</p>
                   </div>
                 </div>
-
                 <div className="space-y-3">
                   <h4 className="text-sm font-semibold text-primary">Laplace Transform</h4>
                   <div className="space-y-1 font-mono text-xs text-equation">
-                    <p>L&#123;f(t)&#125; = ∫₀^∞ f(t)e^(-st)dt</p>
                     <p>L&#123;e^(-at)&#125; = 1/(s+a)</p>
                     <p>L&#123;cos(ωt)&#125; = s/(s²+ω²)</p>
-                    <p>L&#123;u(t)&#125; = 1/s</p>
                     <p>Inductor: V(s) = sLI(s) - Li(0⁻)</p>
                     <p>Capacitor: V(s) = I(s)/(sC) + v(0⁻)/s</p>
                   </div>
                 </div>
-
                 <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-primary">Switch Analysis (t&lt;0 → t&gt;0)</h4>
-                  <div className="space-y-1 font-mono text-xs text-equation">
-                    <p>t&lt;0: Capacitor → open, Inductor → short</p>
-                    <p>Find initial: V₀ = v_C(0⁻), I₀ = i_L(0⁻)</p>
-                    <p>t=0⁺: Cap → V source (V₀), Ind → I source (I₀)</p>
-                    <p>t&gt;0: Solve with initial conditions</p>
-                    <p>Continuity: v_C(0⁻) = v_C(0⁺)</p>
-                    <p>Continuity: i_L(0⁻) = i_L(0⁺)</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-primary">Fourier Series</h4>
+                  <h4 className="text-sm font-semibold text-primary">Fourier & Bode</h4>
                   <div className="space-y-1 font-mono text-xs text-equation">
                     <p>f(t) = a₀ + Σ[aₙcos(nω₀t) + bₙsin(nω₀t)]</p>
-                    <p>a₀ = (1/T)∫₀ᵀ f(t)dt</p>
-                    <p>aₙ = (2/T)∫₀ᵀ f(t)cos(nω₀t)dt</p>
-                    <p>bₙ = (2/T)∫₀ᵀ f(t)sin(nω₀t)dt</p>
-                    <p>ω₀ = 2π/T = 2πf₀</p>
-                    <p>Even sym: bₙ = 0 (cosine only)</p>
-                    <p>Odd sym: aₙ = 0 (sine only)</p>
-                    <p>Half-wave: even harmonics = 0</p>
-                    <p>Parseval: P = a₀² + ½Σ(aₙ²+bₙ²)</p>
+                    <p>RC Low-Pass: f_c = 1/(2πRC)</p>
+                    <p>Roll-off: -20 dB/decade (1st order)</p>
+                    <p>Q = f₀/BW = (1/R)√(L/C)</p>
                   </div>
-                </div>
-              </div>
-
-              {/* Circuit Reading Guide */}
-              <div className="border-t border-border pt-6">
-                <h3 className="text-lg font-bold text-foreground mb-4">📐 How to Read Circuit Diagrams</h3>
-                
-                <div className="grid sm:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-primary">Schematic Symbols</h4>
-                    <div className="space-y-1.5 text-xs text-muted-foreground">
-                      <p><span className="font-mono text-foreground">─/\/\/─</span> Resistor (R, in Ω)</p>
-                      <p><span className="font-mono text-foreground">─||─</span> Capacitor (C, in F)</p>
-                      <p><span className="font-mono text-foreground">─⌇⌇⌇─</span> Inductor (L, in H)</p>
-                      <p><span className="font-mono text-foreground">─(+|−)─</span> Voltage Source (V_s)</p>
-                      <p><span className="font-mono text-foreground">─(↑)─</span> Current Source (I_s)</p>
-                      <p><span className="font-mono text-foreground">⏚</span> Ground (reference node, 0V)</p>
-                      <p><span className="font-mono text-foreground">●</span> Connection dot (wires connect)</p>
-                      <p><span className="font-mono text-foreground">╳</span> Crossing without dot = NO connection</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-primary">Step-by-Step Reading Method</h4>
-                    <div className="space-y-1.5 text-xs text-muted-foreground">
-                      <p><span className="text-primary font-bold">1.</span> Identify every component symbol and its value</p>
-                      <p><span className="text-primary font-bold">2.</span> Mark ALL nodes (junctions where 3+ wires meet)</p>
-                      <p><span className="text-primary font-bold">3.</span> Choose a ground node (reference = 0V)</p>
-                      <p><span className="text-primary font-bold">4.</span> Note source polarities (+/− for V, arrow for I)</p>
-                      <p><span className="text-primary font-bold">5.</span> Determine series vs parallel connections</p>
-                      <p><span className="text-primary font-bold">6.</span> Pick analysis method (Nodal, Mesh, or Thévenin)</p>
-                      <p><span className="text-primary font-bold">7.</span> Write equations BEFORE plugging in numbers</p>
-                      <p><span className="text-primary font-bold">8.</span> Verify with power balance (ΣP = 0)</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-destructive">⚠ Common Mistakes to Avoid</h4>
-                    <div className="space-y-1.5 text-xs text-muted-foreground">
-                      <p>❌ Assuming crossing wires connect (need a dot!)</p>
-                      <p>❌ Forgetting to assign ground before solving</p>
-                      <p>❌ Mixing up source polarity (+ vs −)</p>
-                      <p>❌ Writing numbers before symbolic equations</p>
-                      <p>❌ Forgetting passive sign convention</p>
-                      <p>❌ Not checking units (kΩ vs Ω, μF vs F)</p>
-                      <p>❌ Skipping power balance verification</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-primary">Common Visual Types</h4>
-                    <div className="space-y-1.5 text-xs text-muted-foreground">
-                      <p>📋 <span className="text-foreground font-medium">Circuit schematics</span> — component diagrams</p>
-                      <p>📈 <span className="text-foreground font-medium">Time-domain plots</span> — v(t) or i(t) vs time</p>
-                      <p>📐 <span className="text-foreground font-medium">Phasor diagrams</span> — AC magnitude & phase vectors</p>
-                      <p>📊 <span className="text-foreground font-medium">Bode plots</span> — |H| and ∠H vs frequency</p>
-                      <p>🔄 <span className="text-foreground font-medium">Pole-zero maps</span> — s-plane stability analysis</p>
-                      <p>📉 <span className="text-foreground font-medium">Harmonic spectra</span> — Fourier coefficient magnitudes</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Frequency Response Reference */}
-              <div className="border-t border-border pt-6">
-                <h3 className="text-sm font-semibold text-primary mb-2">Frequency Response / Bode Plots</h3>
-                <div className="space-y-1 font-mono text-xs text-equation">
-                  <p>RC Low-Pass: H(jω) = 1/(1+jωRC), f_c = 1/(2πRC)</p>
-                  <p>RC High-Pass: H(jω) = jωRC/(1+jωRC)</p>
-                  <p>At f_c: |H| = -3.01 dB (half-power point)</p>
-                  <p>Roll-off: -20 dB/decade (1st order)</p>
-                  <p>RLC resonance: f₀ = 1/(2π√LC)</p>
-                  <p>Quality factor: Q = f₀/BW = (1/R)√(L/C)</p>
-                  <p>|H| in dB = 20·log₁₀(|H|)</p>
                 </div>
               </div>
             </div>
