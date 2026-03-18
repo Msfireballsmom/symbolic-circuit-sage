@@ -18,7 +18,7 @@ const SolverHeader = () => {
 
   const tier = subscription?.tier;
   const tierLabel = tier ? TIER_LABELS[tier] || tier.toUpperCase() : "FREE";
-  const hasPaid = tier && tier !== "free";
+  const hasPaid = !!tier;
 
   return (
     <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
