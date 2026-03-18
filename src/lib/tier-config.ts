@@ -1,0 +1,142 @@
+// Stripe tier configuration — maps price IDs to tier metadata
+export const TIERS = {
+  basic: {
+    name: "Basic",
+    price: "$7.99",
+    priceAmount: 7.99,
+    interval: "mo",
+    price_id: "price_1TCEyhBPtYqfoYvYjDVUjepa",
+    product_id: "prod_UAa8QX35lkSb2I",
+    solvesPerDay: 5,
+    description: "Perfect for trying things out",
+    features: [
+      "5 solves per day",
+      "Quick Solver",
+      "Voltage divider",
+      "Reference sheet",
+      "Step-by-step solutions",
+    ],
+    excluded: [
+      "Advanced solvers",
+      "Snap & Solve",
+      "PDF export",
+      "Practice exams",
+      "Save your work",
+    ],
+  },
+  student: {
+    name: "Student",
+    price: "$11.99",
+    priceAmount: 11.99,
+    interval: "mo",
+    price_id: "price_1TCF1eBPtYqfoYvY2zbc9U7H",
+    product_id: "prod_UAaCKVatrLWJsX",
+    solvesPerDay: Infinity,
+    description: "Unlimited solves, all basic solvers",
+    features: [
+      "Unlimited solves",
+      "All basic solvers",
+      "Nodal & mesh analysis",
+      "AC phasor analysis",
+      "Practice exams",
+      "Step-by-step solutions",
+      "Save your work",
+    ],
+    excluded: [
+      "Snap & Solve",
+      "PDF export",
+      "Laplace & Fourier",
+      "Check My Homework",
+    ],
+  },
+  pro: {
+    name: "Pro",
+    price: "$15.99",
+    priceAmount: 15.99,
+    interval: "mo",
+    price_id: "price_1TCF4JBPtYqfoYvYSG8WimhF",
+    product_id: "prod_UAaEzyix3hg4pW",
+    solvesPerDay: Infinity,
+    popular: true,
+    description: "Unlimited everything, Snap & Solve, PDF export",
+    features: [
+      "Unlimited everything",
+      "Snap & Solve photo upload",
+      "PDF export",
+      "Laplace & Fourier analysis",
+      "Bode plot analysis",
+      "Check My Homework",
+      "All Student features",
+    ],
+    excluded: [],
+  },
+  team: {
+    name: "Team",
+    price: "$89.99",
+    priceAmount: 89.99,
+    interval: "mo",
+    price_id: "price_1TCF6CBPtYqfoYvYJz7gMASv",
+    product_id: "prod_UAaGOQMSCoEtWs",
+    solvesPerDay: Infinity,
+    description: "10 seats, everything in Pro, team management",
+    features: [
+      "10 seats included",
+      "Everything in Pro",
+      "Team management",
+      "Priority support",
+      "Shared saved problems",
+      "Bulk PDF export",
+    ],
+    excluded: [],
+  },
+} as const;
+
+export type TierKey = keyof typeof TIERS;
+
+// Map price_id → tier key
+export const PRICE_TO_TIER: Record<string, TierKey> = Object.fromEntries(
+  Object.entries(TIERS).map(([key, tier]) => [tier.price_id, key as TierKey])
+) as Record<string, TierKey>;
+
+// Map product_id → tier key
+export const PRODUCT_TO_TIER: Record<string, TierKey> = Object.fromEntries(
+  Object.entries(TIERS).map(([key, tier]) => [tier.product_id, key as TierKey])
+) as Record<string, TierKey>;
+
+// Feature access by tier
+export const TIER_ACCESS = {
+  guest: { solves: 1, lifetime: true },
+  free: { solves: 0 },
+  basic: { solves: 5 },
+  student: { solves: Infinity },
+  pro: { solves: Infinity },
+  team: { solves: Infinity },
+} as const;
+
+// Which tabs are gated by which minimum tier
+export const TAB_TIER_REQUIREMENTS: Record<string, TierKey> = {
+  quick: "basic",
+  dc: "student",
+  mesh: "student",
+  transient: "student",
+  rlc: "student",
+  ac: "student",
+  laplace: "pro",
+  fourier: "pro",
+  bode: "pro",
+  sage: "pro",
+  exam: "student",
+  homework: "pro",
+  saved: "student",
+};
+
+// Tier hierarchy for comparison
+const TIER_ORDER: TierKey[] = ["basic", "student", "pro", "team"];
+
+export function tierMeetsRequirement(userTier: TierKey | "free" | null, requiredTier: TierKey): boolean {
+  if (!userTier || userTier === "free") return false;
+  const userIdx = TIER_ORDER.indexOf(userTier as TierKey);
+  const reqIdx = TIER_ORDER.indexOf(requiredTier);
+  if (userIdx === -1) return false;
+  return userIdx >= reqIdx;
+}

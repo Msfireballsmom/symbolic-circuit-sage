@@ -1,9 +1,24 @@
 import { Zap, LogOut, Crown, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import SolveCounter from "@/components/SolveCounter";
+import { TIERS, TierKey } from "@/lib/tier-config";
+
+const TIER_LABELS: Record<string, string> = {
+  basic: "BASIC",
+  student: "STUDENT",
+  pro: "PRO",
+  team: "TEAM",
+};
 
 const SolverHeader = () => {
-  const { user, profile, isPro, signOut } = useAuth();
+  const { user, profile, subscription, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const tier = subscription?.tier;
+  const tierLabel = tier ? TIER_LABELS[tier] || tier.toUpperCase() : "FREE";
+  const hasPaid = !!tier;
 
   return (
     <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -26,16 +41,23 @@ const SolverHeader = () => {
             Engine Ready
           </div>
 
+          <SolveCounter />
+
           {user && (
             <div className="flex items-center gap-2">
-              {isPro ? (
+              {hasPaid ? (
                 <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 border border-primary/30 text-primary text-[10px] font-semibold">
-                  <Crown className="w-3 h-3" /> PRO
+                  <Crown className="w-3 h-3" /> {tierLabel}
                 </span>
               ) : (
-                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-muted border border-border text-muted-foreground text-[10px] font-semibold">
-                  <User className="w-3 h-3" /> FREE
-                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[10px] gap-1 text-muted-foreground hover:text-primary"
+                  onClick={() => navigate("/pricing")}
+                >
+                  <Crown className="w-3 h-3" /> Upgrade
+                </Button>
               )}
               <span className="text-xs text-muted-foreground hidden md:inline truncate max-w-[120px]">
                 {profile?.full_name || profile?.email}

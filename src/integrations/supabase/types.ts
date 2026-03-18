@@ -59,6 +59,33 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_solves: {
+        Row: {
+          created_at: string
+          id: string
+          solve_count: number
+          solve_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          solve_count?: number
+          solve_date?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          solve_count?: number
+          solve_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       exam_history: {
         Row: {
           created_at: string
@@ -89,6 +116,27 @@ export type Database = {
           topics?: Json | null
           total?: number
           user_id?: string
+        }
+        Relationships: []
+      }
+      guest_solves: {
+        Row: {
+          created_at: string
+          fingerprint: string
+          id: string
+          used: boolean
+        }
+        Insert: {
+          created_at?: string
+          fingerprint: string
+          id?: string
+          used?: boolean
+        }
+        Update: {
+          created_at?: string
+          fingerprint?: string
+          id?: string
+          used?: boolean
         }
         Relationships: []
       }

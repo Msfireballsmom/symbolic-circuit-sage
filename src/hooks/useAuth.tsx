@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
+import { PRICE_TO_TIER, PRODUCT_TO_TIER, TierKey } from "@/lib/tier-config";
 
 interface Profile {
   id: string;
@@ -10,10 +11,18 @@ interface Profile {
   stripe_customer_id: string | null;
 }
 
+interface Subscription {
+  subscribed: boolean;
+  tier: TierKey | null;
+  subscriptionEnd: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
+  subscription: Subscription | null;
+  dailySolves: number;
   isPro: boolean;
   isAdmin: boolean;
   loading: boolean;
@@ -23,6 +32,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  refreshSubscription: () => Promise<void>;
+  incrementSolve: () => Promise<boolean>;
   enterTestMode: (tier: "free" | "pro") => void;
   exitTestMode: () => void;
 }
@@ -49,6 +60,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [dailySolves, setDailySolves] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isTestMode, setIsTestMode] = useState(false);
   const [testTier, setTestTier] = useState<"free" | "pro" | null>(null);
@@ -61,7 +74,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .eq("id", userId)
       .single();
     if (data) setProfile(data as Profile);
-    // Check admin role
     const { data: roleData } = await supabase
       .from("user_roles")
       .select("role")
@@ -71,20 +83,88 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAdmin(!!roleData);
   };
 
+  const refreshSubscription = useCallback(async () => {
+    if (!session?.access_token) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("check-subscription");
+      if (error) {
+        console.error("check-subscription error:", error);
+        return;
+      }
+      if (data) {
+        let tier: TierKey | null = null;
+        if (data.price_id && PRICE_TO_TIER[data.price_id]) {
+          tier = PRICE_TO_TIER[data.price_id];
+        } else if (data.product_id && PRODUCT_TO_TIER[data.product_id]) {
+          tier = PRODUCT_TO_TIER[data.product_id];
+        }
+        setSubscription({
+          subscribed: data.subscribed,
+          tier,
+          subscriptionEnd: data.subscription_end,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to check subscription:", err);
+    }
+  }, [session?.access_token]);
+
+  const fetchDailySolves = useCallback(async (userId: string) => {
+    const today = new Date().toISOString().split("T")[0];
+    const { data } = await supabase
+      .from("daily_solves")
+      .select("solve_count")
+      .eq("user_id", userId)
+      .eq("solve_date", today)
+      .maybeSingle();
+    setDailySolves(data?.solve_count ?? 0);
+  }, []);
+
+  const incrementSolve = useCallback(async (): Promise<boolean> => {
+    if (!user) return false;
+    const today = new Date().toISOString().split("T")[0];
+    // Upsert: insert or increment
+    const { data: existing } = await supabase
+      .from("daily_solves")
+      .select("id, solve_count")
+      .eq("user_id", user.id)
+      .eq("solve_date", today)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await supabase
+        .from("daily_solves")
+        .update({ solve_count: existing.solve_count + 1, updated_at: new Date().toISOString() })
+        .eq("id", existing.id);
+      if (error) return false;
+      setDailySolves(existing.solve_count + 1);
+    } else {
+      const { error } = await supabase
+        .from("daily_solves")
+        .insert({ user_id: user.id, solve_date: today, solve_count: 1 });
+      if (error) return false;
+      setDailySolves(1);
+    }
+    return true;
+  }, [user]);
+
   const refreshProfile = async () => {
     if (user) await fetchProfile(user.id);
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         if (isTestMode) return;
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
           setTimeout(() => fetchProfile(session.user.id), 0);
+          setTimeout(() => fetchDailySolves(session.user.id), 0);
         } else {
           setProfile(null);
+          setSubscription(null);
+          setDailySolves(0);
         }
         setLoading(false);
       }
@@ -94,12 +174,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (isTestMode) return;
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+        fetchDailySolves(session.user.id);
+      }
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
-  }, [isTestMode]);
+    return () => authSub.unsubscribe();
+  }, [isTestMode, fetchDailySolves]);
+
+  // Check subscription on login and every 60s
+  useEffect(() => {
+    if (!session?.access_token || isTestMode) return;
+    refreshSubscription();
+    const interval = setInterval(refreshSubscription, 60000);
+    return () => clearInterval(interval);
+  }, [session?.access_token, isTestMode, refreshSubscription]);
 
   const signUp = async (email: string, password: string, fullName: string) => {
     const { error } = await supabase.auth.signUp({
@@ -122,6 +213,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     await supabase.auth.signOut();
     setProfile(null);
+    setSubscription(null);
+    setDailySolves(0);
   };
 
   const enterTestMode = (tier: "free" | "pro") => {
@@ -129,6 +222,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setTestTier(tier);
     setProfile(tier === "pro" ? TEST_PRO_PROFILE : TEST_FREE_PROFILE);
     setUser({ id: tier === "pro" ? "test-pro-user" : "test-free-user" } as User);
+    setSubscription(tier === "pro" ? { subscribed: true, tier: "pro", subscriptionEnd: null } : null);
     setLoading(false);
   };
 
@@ -138,15 +232,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setProfile(null);
     setUser(null);
     setSession(null);
+    setSubscription(null);
+    setDailySolves(0);
   };
+
+  const isPro = isTestMode
+    ? testTier === "pro"
+    : (subscription?.tier === "pro" || subscription?.tier === "team");
 
   return (
     <AuthContext.Provider value={{
-      user, session, profile,
-      isPro: isTestMode ? testTier === "pro" : profile?.subscription_tier === "pro",
-      isAdmin,
-      loading, isTestMode, testTier,
-      signUp, signIn, signOut, refreshProfile,
+      user, session, profile, subscription, dailySolves,
+      isPro, isAdmin, loading, isTestMode, testTier,
+      signUp, signIn, signOut, refreshProfile, refreshSubscription, incrementSolve,
       enterTestMode, exitTestMode,
     }}>
       {children}
