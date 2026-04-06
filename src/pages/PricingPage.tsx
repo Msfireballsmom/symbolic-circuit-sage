@@ -15,12 +15,18 @@ const tierIcons: Record<TierKey, React.ReactNode> = {
 };
 
 const PricingPage = () => {
-  const { user, subscription } = useAuth();
+  const { user, session, subscription, isTestMode } = useAuth();
   const navigate = useNavigate();
   const [loadingTier, setLoadingTier] = useState<TierKey | null>(null);
 
   const handleCheckout = async (tier: TierKey) => {
-    if (!user) {
+    if (!user || !session?.access_token || isTestMode) {
+      toast({
+        title: "Sign in required",
+        description: isTestMode
+          ? "Test mode can't start a real checkout. Sign in to subscribe."
+          : "Please sign in to start checkout.",
+      });
       navigate("/auth");
       return;
     }
@@ -41,6 +47,17 @@ const PricingPage = () => {
   };
 
   const handleManage = async () => {
+    if (!session?.access_token || isTestMode) {
+      toast({
+        title: "Sign in required",
+        description: isTestMode
+          ? "Test mode can't open billing management. Sign in to manage a real subscription."
+          : "Please sign in to manage your subscription.",
+      });
+      navigate("/auth");
+      return;
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke("customer-portal");
       if (error) throw error;
