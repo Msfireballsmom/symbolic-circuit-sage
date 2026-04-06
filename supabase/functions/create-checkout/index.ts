@@ -22,7 +22,23 @@ serve(async (req) => {
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header provided");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Please sign in before starting checkout" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+
+    const token = authHeader.replace("Bearer ", "").trim();
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
+    if (!token || token === anonKey) {
+      logStep("Missing authenticated user token");
+      return new Response(JSON.stringify({ error: "Please sign in before starting checkout" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
 
     // Use anon key with user's auth header for proper user context
     const supabaseClient = createClient(
@@ -34,9 +50,17 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError) {
       logStep("Auth error", { message: userError.message });
-      throw new Error(`Authentication failed: ${userError.message}`);
+      return new Response(JSON.stringify({ error: "Please sign in before starting checkout" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
     }
-    if (!user?.email) throw new Error("User not authenticated or email not available");
+    if (!user?.email) {
+      return new Response(JSON.stringify({ error: "Please sign in before starting checkout" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
     logStep("User authenticated", { email: user.email });
 
     const { priceId } = await req.json();
