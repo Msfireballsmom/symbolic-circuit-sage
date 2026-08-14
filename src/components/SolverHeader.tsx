@@ -29,9 +29,9 @@ const SolverHeader = () => {
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-tight text-foreground">
-              Circuit <span className="text-primary glow-text">Solver Pro</span>
+              Circuit <span className="text-primary glow-text">Sage</span>
             </h1>
-            <p className="text-xs text-muted-foreground -mt-0.5">Advanced Analysis Engine</p>
+            <p className="text-xs text-muted-foreground -mt-0.5">Step-by-step circuit analysis</p>
           </div>
         </div>
 

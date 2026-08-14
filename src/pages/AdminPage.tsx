@@ -256,7 +256,7 @@ const AdminPage = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
               <FlaskConical className="w-6 h-6 text-primary" />
-              Circuit Solver Pro — Self-Test
+              Circuit Sage — Self-Test
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Hardcoded verification + AI-generated novel problems
