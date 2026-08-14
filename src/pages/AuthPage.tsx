@@ -38,7 +38,7 @@ const AuthPage = () => {
             <Zap className="w-7 h-7 text-primary" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">
-            Circuit <span className="text-primary glow-text">Solver Pro</span>
+            Circuit <span className="text-primary glow-text">Sage</span>
           </h1>
           <p className="text-sm text-muted-foreground">Advanced Circuit Analysis Engine</p>
         </div>

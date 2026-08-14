@@ -42,7 +42,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const TEST_PRO_PROFILE: Profile = {
   id: "test-pro-user",
-  email: "pro@circuitsolverpro.test",
+  email: "pro@circuitsage.test",
   full_name: "Alex Engineer (Pro)",
   subscription_tier: "pro",
   stripe_customer_id: "cus_test_pro",
@@ -50,7 +50,7 @@ const TEST_PRO_PROFILE: Profile = {
 
 const TEST_FREE_PROFILE: Profile = {
   id: "test-free-user",
-  email: "student@circuitsolverpro.test",
+  email: "student@circuitsage.test",
   full_name: "Jordan Student (Free)",
   subscription_tier: "free",
   stripe_customer_id: null,

@@ -220,7 +220,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t border-border py-6 mt-8">
         <div className="container px-4 flex items-center justify-between text-xs text-muted-foreground">
-          <span>Circuit Solver Pro — Advanced Analysis Engine</span>
+          <span>Circuit Sage — Advanced Analysis Engine</span>
           <span className="font-mono">v4.0</span>
         </div>
       </footer>
