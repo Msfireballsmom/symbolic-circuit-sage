@@ -57,12 +57,12 @@ const TierGate = ({ children, tabId }: TierGateProps) => {
         <Lock className="w-8 h-8 text-primary" />
       </div>
       <h3 className="text-lg font-bold text-foreground">
-        Requires {tier.name} Plan
+        You have used your free run this month
       </h3>
       <p className="text-sm text-muted-foreground max-w-md mx-auto">
-        This solver requires a <span className="text-primary font-semibold">{tier.name}</span> subscription or higher.
-        Upgrade to unlock this and more.
+        A new free run opens next month. {tier.name} and above keep this solver open every day.
       </p>
+
       <Button onClick={() => navigate("/pricing")} className="gap-2">
         <Crown className="w-4 h-4" />
         View Plans
