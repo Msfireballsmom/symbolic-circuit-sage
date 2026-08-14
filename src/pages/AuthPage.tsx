@@ -40,7 +40,7 @@ const AuthPage = () => {
           <h1 className="text-2xl font-bold text-foreground">
             Circuit <span className="text-primary glow-text">Sage</span>
           </h1>
-          <p className="text-sm text-muted-foreground">Advanced Circuit Analysis Engine</p>
+          <p className="text-sm text-muted-foreground">Reads your assignment. Shows every step.</p>
         </div>
 
         {/* Auth Form */}
