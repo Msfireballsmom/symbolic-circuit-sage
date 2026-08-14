@@ -4,7 +4,7 @@ import { useFreeRun } from "@/hooks/useFreeRun";
 import { TIERS, TierKey } from "@/lib/tier-config";
 
 const SolveCounter = () => {
-  const { user, subscription } = useAuth();
+  const { user, subscription, dailySolves } = useAuth();
   const { available: freeRunAvailable } = useFreeRun();
 
   const tier = subscription?.tier as TierKey | null;
