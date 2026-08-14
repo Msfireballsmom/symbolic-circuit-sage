@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import {
 import { solveMesh, MeshComponent, MeshResult } from "@/lib/mesh-solver";
 import { solveOpAmp, solveDiode, solveWithDependentSources, DepSourceResult } from "@/lib/advanced-solvers";
 import { supabase } from "@/integrations/supabase/client";
+import { useFreeRun } from "@/hooks/useFreeRun";
 import StepDisplay from "./StepDisplay";
 import MatrixDisplay from "./MatrixDisplay";
 
@@ -58,6 +59,12 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
   const [isExtracting, setIsExtracting] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { markSolveCompleted } = useFreeRun();
+
+  // The monthly free run is charged only once a solve has produced a result.
+  useEffect(() => {
+    if (result) markSolveCompleted();
+  }, [result, markSolveCompleted]);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const handleParse = () => {
