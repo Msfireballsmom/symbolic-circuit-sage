@@ -14,6 +14,7 @@ import { solveMesh, MeshComponent, MeshResult } from "@/lib/mesh-solver";
 import { solveOpAmp, solveDiode, solveWithDependentSources, DepSourceResult } from "@/lib/advanced-solvers";
 import { supabase } from "@/integrations/supabase/client";
 import { useFreeRun } from "@/hooks/useFreeRun";
+import VerifiedSolution from "./VerifiedSolution";
 import StepDisplay from "./StepDisplay";
 import MatrixDisplay from "./MatrixDisplay";
 
@@ -58,19 +59,21 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
   const [parseSteps, setParseSteps] = useState<string[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState<ParsedProblem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { markSolveCompleted } = useFreeRun();
 
   // The monthly free run is charged only once a solve has produced a result.
   useEffect(() => {
-    if (result) markSolveCompleted();
-  }, [result, markSolveCompleted]);
+    if (result || confirmed) markSolveCompleted();
+  }, [result, confirmed, markSolveCompleted]);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const handleParse = () => {
     if (!problemText.trim()) return;
     setError("");
     setResult(null);
+    setConfirmed(null);
     const p = parseProblem(problemText);
     setParsed(p);
     setParseSteps(formatParsedSummary(p));
@@ -88,6 +91,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
       setIsExtracting(true);
       setError("");
       setResult(null);
+      setConfirmed(null);
       setParsed(null);
       setParseSteps([]);
 
@@ -398,6 +402,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
   const handleExample = (example: string) => {
     setProblemText(example);
     setParsed(null);
+    setConfirmed(null);
     setResult(null);
     setError("");
     setUploadedImage(null);
@@ -405,6 +410,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
 
   const handleClear = () => {
     setProblemText("");
+    setConfirmed(null);
     setParsed(null);
     setResult(null);
     setError("");
@@ -451,8 +457,8 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
               <Play className="w-3.5 h-3.5" /> Parse Text
             </Button>
             {parsed && (
-              <Button onClick={handleSolve} className="gap-2 text-xs">
-                <CheckCircle className="w-3.5 h-3.5" /> Solve ({formatMethod(parsed.method)})
+              <Button onClick={handleSolve} variant="outline" className="gap-2 text-xs">
+                <Play className="w-3.5 h-3.5" /> Legacy solve ({formatMethod(parsed.method)})
               </Button>
             )}
             <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => imageInputRef.current?.click()} disabled={isExtracting}>
@@ -592,6 +598,19 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
               {parsed.sourceVoltage && <Badge variant="outline">Vs = {parsed.sourceVoltage}V</Badge>}
             </div>
 
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Button
+                onClick={() => setConfirmed(JSON.parse(JSON.stringify(parsed)))}
+                className="gap-2 text-xs"
+              >
+                <CheckCircle className="w-3.5 h-3.5" /> Confirm netlist &amp; solve
+              </Button>
+              <p className="text-[10px] text-muted-foreground">
+                Image and text reading is not perfect — confirm every type, value, and node
+                connection above. Nothing is solved until you do.
+              </p>
+            </div>
+
             {parsed.warnings.length > 0 && (
               <div className="p-2 rounded bg-warning/10 border border-warning/30">
                 <div className="flex items-start gap-2 text-xs text-warning">
@@ -606,6 +625,8 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
         </Card>
       )}
 
+      {confirmed && <VerifiedSolution parsed={confirmed} />}
+
       {/* Error */}
       {error && (
         <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm font-mono">
@@ -619,7 +640,8 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-success" />
-              Solution
+              Legacy solver output
+              <Badge variant="outline" className="text-[9px]">preview — not power-verified</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-2">
