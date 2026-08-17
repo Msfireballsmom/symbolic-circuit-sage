@@ -5,28 +5,12 @@
 
 import { describe, it, expect } from "vitest";
 import { MATRIX, TODO_ROWS } from "./problems";
-import type { CircuitModel, AnalysisRequest } from "@/lib/circuit-model";
 import type { ExpectedValue } from "./types";
+import { solveQuestion } from "@/lib/model-solver";
 
-// The solver's public API, defined now so every downstream milestone slots in.
-// Returns a plain numeric answer for `deliverable: "number"` questions.
-// Throws NOT_IMPLEMENTED until M2 finishes.
-export interface SolveResult {
-  numeric?: number;
-  complex?: { re: number; im: number };
-  symbolic?: string;
-}
+const solve = solveQuestion;
 
-class NotImplementedError extends Error {
-  constructor() { super("NOT_IMPLEMENTED"); this.name = "NotImplementedError"; }
-}
-
-// Shim — the real implementation lands in M2.
-function solve(_model: CircuitModel, _question: AnalysisRequest): SolveResult {
-  throw new NotImplementedError();
-}
-
-function checkExpectation(actual: SolveResult, expected: ExpectedValue, tol: number) {
+function checkExpectation(actual: { numeric?: number; complex?: { re: number; im: number }; symbolic?: string }, expected: ExpectedValue, tol: number) {
   switch (expected.kind) {
     case "number":
       expect(actual.numeric).toBeDefined();
@@ -55,7 +39,6 @@ describe("Coverage matrix (§10)", () => {
       for (const exp of problem.expectations) {
         const question = problem.model.questions.find(q => q.label === exp.questionLabel);
         it(`(${exp.questionLabel}) ${question?.sourceText ?? ""}`, () => {
-          // Expected to fail with NOT_IMPLEMENTED until M2 lands the solver.
           expect(question, `question ${exp.questionLabel} missing from model`).toBeDefined();
           const result = solve(problem.model, question!);
           checkExpectation(result, exp.expected, exp.tolerance);
