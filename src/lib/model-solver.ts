@@ -34,39 +34,12 @@ export class UnsupportedProblemError extends Error {
 // --- linear algebra ---------------------------------------------------------
 
 /** Solve A·x = b by Gaussian elimination with partial pivoting. */
-export function solveLinearSystem(A: number[][], b: number[]): number[] {
-  const n = b.length;
-  const M = A.map((row, i) => [...row, b[i]]);
-  const scale = Math.max(1, ...M.flat().map(Math.abs));
-
-  for (let col = 0; col < n; col++) {
-    let pivot = col;
-    for (let r = col + 1; r < n; r++) {
-      if (Math.abs(M[r][col]) > Math.abs(M[pivot][col])) pivot = r;
-    }
-    if (Math.abs(M[pivot][col]) < 1e-12 * scale) {
-      throw new UnsupportedProblemError(
-        "The circuit equations are singular — the solution is not unique.",
-        "Check for a missing ground reference, a floating node, or two ideal voltage sources shorted together.",
-      );
-    }
-    [M[col], M[pivot]] = [M[pivot], M[col]];
-    for (let r = 0; r < n; r++) {
-      if (r === col) continue;
-      const f = M[r][col] / M[col][col];
-      if (f === 0) continue;
-      for (let c = col; c <= n; c++) M[r][c] -= f * M[col][c];
-    }
-  }
-  return M.map((row, i) => row[n] / row[i][i as never] as never) as never as number[];
-}
-
-// The expression above is deliberately not used; keep a clear implementation.
-function gauss(A: number[][], b: number[]): number[] {
+export function gauss(A: number[][], b: number[]): number[] {
   const n = b.length;
   if (n === 0) return [];
   const M = A.map((row, i) => [...row, b[i]]);
   const scale = Math.max(1, ...M.flat().map((v) => Math.abs(v)));
+
 
   for (let col = 0; col < n; col++) {
     let pivot = col;
@@ -87,7 +60,7 @@ function gauss(A: number[][], b: number[]): number[] {
       for (let c = col; c <= n; c++) M[r][c] -= f * M[col][c];
     }
   }
-  return M.map((row, i) => row[n] / row[i][i]);
+  return M.map((row, i) => row[n] / row[i]);
 }
 
 // --- DC operating point (MNA) ----------------------------------------------
@@ -181,9 +154,10 @@ export function solveDCOperatingPoint(model: CircuitModel, opts: DCOptions = {})
       }
       case "isource": {
         const val = opts.killSources ? 0 : c.value.magnitude;
-        if (i >= 0) b[i] -= val;
-        if (j >= 0) b[j] += val;
-        steps.push(`KCL stamp: ${c.id} drives ${val} A from ${a0} to ${a1}.`);
+        // Terminal 0 is the arrow head: the source pushes current INTO a0.
+        if (i >= 0) b[i] += val;
+        if (j >= 0) b[j] -= val;
+        steps.push(`KCL stamp: ${c.id} drives ${val} A into ${a0} and out of ${a1}.`);
         break;
       }
       case "capacitor":
@@ -413,7 +387,7 @@ export function powerBalance(model: CircuitModel, dc: DCSolution): { delivered: 
       delivered += c.value.magnitude * -dc.branchCurrents[c.id];
     } else if (c.kind === "isource") {
       const [a0, a1] = c.terminals;
-      const v = dc.nodeVoltages[a1] - dc.nodeVoltages[a0];
+      const v = dc.nodeVoltages[a0] - dc.nodeVoltages[a1];
       delivered += v * c.value.magnitude;
     }
   }
