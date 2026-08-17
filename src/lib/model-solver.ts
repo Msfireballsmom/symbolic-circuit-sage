@@ -34,39 +34,12 @@ export class UnsupportedProblemError extends Error {
 // --- linear algebra ---------------------------------------------------------
 
 /** Solve A·x = b by Gaussian elimination with partial pivoting. */
-export function solveLinearSystem(A: number[][], b: number[]): number[] {
-  const n = b.length;
-  const M = A.map((row, i) => [...row, b[i]]);
-  const scale = Math.max(1, ...M.flat().map(Math.abs));
-
-  for (let col = 0; col < n; col++) {
-    let pivot = col;
-    for (let r = col + 1; r < n; r++) {
-      if (Math.abs(M[r][col]) > Math.abs(M[pivot][col])) pivot = r;
-    }
-    if (Math.abs(M[pivot][col]) < 1e-12 * scale) {
-      throw new UnsupportedProblemError(
-        "The circuit equations are singular — the solution is not unique.",
-        "Check for a missing ground reference, a floating node, or two ideal voltage sources shorted together.",
-      );
-    }
-    [M[col], M[pivot]] = [M[pivot], M[col]];
-    for (let r = 0; r < n; r++) {
-      if (r === col) continue;
-      const f = M[r][col] / M[col][col];
-      if (f === 0) continue;
-      for (let c = col; c <= n; c++) M[r][c] -= f * M[col][c];
-    }
-  }
-  return M.map((row, i) => row[n] / row[i][i as never] as never) as never as number[];
-}
-
-// The expression above is deliberately not used; keep a clear implementation.
-function gauss(A: number[][], b: number[]): number[] {
+export function gauss(A: number[][], b: number[]): number[] {
   const n = b.length;
   if (n === 0) return [];
   const M = A.map((row, i) => [...row, b[i]]);
   const scale = Math.max(1, ...M.flat().map((v) => Math.abs(v)));
+
 
   for (let col = 0; col < n; col++) {
     let pivot = col;
