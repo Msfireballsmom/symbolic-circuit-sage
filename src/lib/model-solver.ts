@@ -60,7 +60,7 @@ export function gauss(A: number[][], b: number[]): number[] {
       for (let c = col; c <= n; c++) M[r][c] -= f * M[col][c];
     }
   }
-  return M.map((row, i) => row[n] / row[i][i]);
+  return M.map((row, i) => row[n] / row[i]);
 }
 
 // --- DC operating point (MNA) ----------------------------------------------
@@ -154,9 +154,10 @@ export function solveDCOperatingPoint(model: CircuitModel, opts: DCOptions = {})
       }
       case "isource": {
         const val = opts.killSources ? 0 : c.value.magnitude;
-        if (i >= 0) b[i] -= val;
-        if (j >= 0) b[j] += val;
-        steps.push(`KCL stamp: ${c.id} drives ${val} A from ${a0} to ${a1}.`);
+        // Terminal 0 is the arrow head: the source pushes current INTO a0.
+        if (i >= 0) b[i] += val;
+        if (j >= 0) b[j] -= val;
+        steps.push(`KCL stamp: ${c.id} drives ${val} A into ${a0} and out of ${a1}.`);
         break;
       }
       case "capacitor":
@@ -386,7 +387,7 @@ export function powerBalance(model: CircuitModel, dc: DCSolution): { delivered: 
       delivered += c.value.magnitude * -dc.branchCurrents[c.id];
     } else if (c.kind === "isource") {
       const [a0, a1] = c.terminals;
-      const v = dc.nodeVoltages[a1] - dc.nodeVoltages[a0];
+      const v = dc.nodeVoltages[a0] - dc.nodeVoltages[a1];
       delivered += v * c.value.magnitude;
     }
   }
