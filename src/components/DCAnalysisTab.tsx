@@ -117,7 +117,22 @@ const DCAnalysisTab = () => {
               ))}
             </div>
 
+            {result.branchCurrents.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-xs font-semibold text-muted-foreground mb-2">Component Currents</h4>
+                <div className="flex flex-wrap gap-3">
+                  {result.branchCurrents.map((bc, i) => (
+                    <div key={i} className="px-4 py-2 rounded-md bg-muted/50 border border-border">
+                      <span className="text-xs text-muted-foreground">I({bc.component})</span>
+                      <p className="text-base font-mono font-bold text-foreground">{bc.current.toFixed(6)} A</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 flex items-center gap-2 text-sm">
+
               <span className={`w-2 h-2 rounded-full ${result.powerBalance.balanced ? 'bg-success' : 'bg-warning'}`} />
               <span className={result.powerBalance.balanced ? 'text-success' : 'text-warning'}>
                 Power Balance: {result.powerBalance.balanced ? 'Verified ✓' : 'Imbalance Detected ⚠'}
