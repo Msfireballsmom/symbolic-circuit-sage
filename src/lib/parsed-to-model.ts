@@ -156,15 +156,31 @@ function buildQuestions(parsed: ParsedProblem, components: Component[]): Analysi
     return questions;
   }
 
-  if (kind === "thevenin" && nodes[0]) {
-    questions.push({
-      label: String.fromCharCode(label++),
-      kind: "thevenin",
-      target: { type: "node", ref: nodes[0] },
-      deliverable: "circuit",
-      sourceText: `Find the Thévenin equivalent at ${nodes[0]}.`,
-    });
+  if (kind === "thevenin") {
+    // The port must not sit directly across an ideal source — that always
+    // yields R_th = 0 and is never the terminal pair a problem asks about.
+    const sourceNodes = new Set(
+      components.filter((c) => c.kind === "vsource").flatMap((c) => c.terminals),
+    );
+    const port = nodes.find((n) => !sourceNodes.has(n)) ?? nodes[0];
+    if (port) {
+      for (const k of ["thevenin", "norton", "maxpower"] as const) {
+        questions.push({
+          label: String.fromCharCode(label++),
+          kind: k,
+          target: { type: "node", ref: port },
+          deliverable: k === "thevenin" ? "circuit" : "number",
+          sourceText:
+            k === "thevenin"
+              ? `Find the Thévenin equivalent at ${port}.`
+              : k === "norton"
+                ? `Find the Norton equivalent current at ${port}.`
+                : `Find the load resistance for maximum power transfer at ${port}, and P_max.`,
+        });
+      }
+    }
   }
+
 
   for (const n of nodes) {
     questions.push({
