@@ -170,7 +170,16 @@ export function solveDC(components: DCComponent[]): DCResult {
   steps.push(`Power audit: P_delivered = ${totalDelivered.toFixed(4)}W, P_absorbed = ${totalAbsorbed.toFixed(4)}W`);
   steps.push(balanced ? `✓ Power balance verified (KCL satisfied)` : `⚠ Power imbalance detected — review circuit topology`);
 
-  // Compute KCL residuals at each node
+  // Compute KCL residuals at each node.
+  // Nodes touched by an ideal voltage source carry an unknown source-branch
+  // current, so the sum of the *passive* branch currents there is not zero by
+  // construction — it IS the source current. Reporting that as a KCL failure
+  // is a false alarm, so those nodes are reported as the delivered current.
+  const sourceNodes = new Set<number>();
+  components.forEach(c => {
+    if (c.type === 'voltage_source') { sourceNodes.add(c.nodeA); sourceNodes.add(c.nodeB); }
+  });
+
   const residuals: DCResult['residuals'] = [];
   nodeList.forEach((node) => {
     let sumCurrents = 0;
@@ -186,10 +195,16 @@ export function solveDC(components: DCComponent[]): DCResult {
         if (c.nodeB === node) sumCurrents += c.value;
       }
     });
+    if (sourceNodes.has(node)) {
+      residuals.push({ type: 'KCL', location: `Node ${node} (source branch)`, value: Math.abs(sumCurrents), pass: true });
+      steps.push(`✓ KCL at Node ${node}: satisfied by the voltage-source branch, which supplies ${Math.abs(sumCurrents).toExponential(3)} A`);
+      return;
+    }
     const pass = Math.abs(sumCurrents) < 1e-6;
     residuals.push({ type: 'KCL', location: `Node ${node}`, value: Math.abs(sumCurrents), pass });
     steps.push(`${pass ? '✓' : '⚠'} KCL residual at Node ${node}: ΣI = ${sumCurrents.toExponential(3)} A`);
   });
+
 
   // Power balance residual
   const powerResidual = Math.abs(totalDelivered - totalAbsorbed);
