@@ -173,6 +173,8 @@ export interface AnalysisRequest {
   at?: TimeTarget | { frequency: Quantity };
   deliverable: "number" | "expression" | "plot" | "diagram" | "circuit" | "document";
   sourceText: string; // the question, verbatim
+  /** Superposition only: the independent source whose contribution is asked for. */
+  source?: string;
 }
 
 export type SourceGenre =

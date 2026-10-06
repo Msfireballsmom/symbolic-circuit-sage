@@ -113,9 +113,9 @@ describe("canonical model solver", () => {
       }],
     };
     const r = solveQuestion(m, m.questions[0]);
-    // τ = L/R = 1 ms, final value 0 (inductor shorts the node to ground).
+    // τ = L/R = 1 ms; v(n2) jumps to 10 V at 0⁺ (i_L = 0) and decays to 0.
     expect(r.extras?.tau).toBeCloseTo(1e-3, 12);
-    expect(r.numeric).toBeCloseTo(0, 9);
+    expect(r.numeric).toBeCloseTo(10 * Math.exp(-1), 9);
   });
 
   it("refuses unsupported analyses instead of inventing an answer", () => {
