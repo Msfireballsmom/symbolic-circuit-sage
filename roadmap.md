@@ -1,4 +1,5 @@
-# ET310 verification
-- [x] Fix RLC steady-state verification and add regression tests.
-- [x] Add original independent parameterized ET310 tests and developer coverage view.
-- [x] Run full tests, verify live RLC/coverage flow, check production build, report unsupported scope.
+# Production-readiness audit
+- [ ] Audit visible math, parsing, generation, homework, admin, saved and export paths; remove fabricated claims.
+- [ ] Block ambiguous/unsupported answers and add focused numerical/input regressions.
+- [ ] Harden configured AI functions and verify supported controls in the live UI.
+- [ ] Run full suite, independent ET310 corpus and matrix; check harness build and report evidence and limitations.
