@@ -9,12 +9,14 @@ import {
 } from "@/lib/circuit-solver";
 import StepDisplay from "./StepDisplay";
 import { Calculator, Plus, Trash2, Play } from "lucide-react";
+import { parseQuantity } from '@/lib/quantity';
 
 type SolverType = 'ohms_law' | 'series_parallel' | 'voltage_divider' | 'current_divider' | 'thevenin' | 'power' | 'superposition';
 
 const QuickSolverTab = () => {
   const [solverType, setSolverType] = useState<SolverType>('ohms_law');
   const [result, setResult] = useState<QuickResult | null>(null);
+  const [error, setError] = useState('');
 
   // Ohm's law state
   const [ohmV, setOhmV] = useState('');
@@ -50,31 +52,34 @@ const QuickSolverTab = () => {
   ]);
 
   const solve = () => {
+    setResult(null); setError('');
+    try {
+    if (solverType === 'superposition') throw new Error('Unsupported: this form only sums user-entered contributions; no circuit topology is provided. Use nodal analysis for actual source contributions.');
     switch (solverType) {
       case 'ohms_law':
         setResult(solveOhmsLaw({
-          V: ohmV ? parseFloat(ohmV) : undefined,
-          I: ohmI ? parseFloat(ohmI) : undefined,
-          R: ohmR ? parseFloat(ohmR) : undefined,
+          V: ohmV ? parseQuantity(ohmV, 'V') : undefined,
+          I: ohmI ? parseQuantity(ohmI, 'A') : undefined,
+          R: ohmR ? parseQuantity(ohmR, 'Ω') : undefined,
         }));
         break;
       case 'series_parallel':
-        setResult(solveSeriesParallel(resistors.map(r => parseFloat(r) || 0), spConfig));
+        setResult(solveSeriesParallel(resistors.map(r => parseQuantity(r, 'Ω')), spConfig));
         break;
       case 'voltage_divider':
-        setResult(solveVoltageDivider(parseFloat(vdVs), parseFloat(vdR1), parseFloat(vdR2)));
+        setResult(solveVoltageDivider(parseQuantity(vdVs, 'V'), parseQuantity(vdR1, 'Ω'), parseQuantity(vdR2, 'Ω')));
         break;
       case 'current_divider':
-        setResult(solveCurrentDivider(parseFloat(cdIs), parseFloat(cdR1), parseFloat(cdR2)));
+        setResult(solveCurrentDivider(parseQuantity(cdIs, 'A'), parseQuantity(cdR1, 'Ω'), parseQuantity(cdR2, 'Ω')));
         break;
       case 'thevenin':
-        setResult(solveThevenin(parseFloat(thVoc), parseFloat(thIsc)));
+        setResult(solveThevenin(parseQuantity(thVoc, 'V'), parseQuantity(thIsc, 'A')));
         break;
       case 'power':
         setResult(solvePower({
-          V: ohmV ? parseFloat(ohmV) : undefined,
-          I: ohmI ? parseFloat(ohmI) : undefined,
-          R: ohmR ? parseFloat(ohmR) : undefined,
+          V: ohmV ? parseQuantity(ohmV, 'V') : undefined,
+          I: ohmI ? parseQuantity(ohmI, 'A') : undefined,
+          R: ohmR ? parseQuantity(ohmR, 'Ω') : undefined,
         }));
         break;
       case 'superposition': {
@@ -123,6 +128,7 @@ const QuickSolverTab = () => {
         break;
       }
     }
+    } catch (e) { setError(e instanceof Error ? e.message : 'Answer withheld.'); }
   };
 
   const renderInputs = () => {
@@ -325,10 +331,12 @@ const QuickSolverTab = () => {
         </Button>
       </div>
 
+      {error && <p role="alert" className="text-destructive text-sm">{error}</p>}
       {result && (
         <div className="space-y-4 animate-slide-up">
           <div className="p-4 rounded-lg bg-card border border-border">
             <h3 className="text-sm font-semibold text-foreground mb-3">{result.title}</h3>
+            <p role="status" className="text-warning text-xs mb-3">Unverified calculator output — not independent circuit certification. Thévenin inputs are supplied measurements, not inferred terminals.</p>
             <div className="flex flex-wrap gap-3 mb-4">
               {result.results.map((r, i) => (
                 <div key={i} className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">

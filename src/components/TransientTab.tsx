@@ -17,6 +17,7 @@ const TransientTab = () => {
     tFinal: 0.01,
   });
   const [result, setResult] = useState<TransientResult | null>(null);
+  const [error, setError] = useState('');
 
   const update = (field: keyof TransientInput, val: string) => {
     if (field === 'type') {
@@ -26,7 +27,7 @@ const TransientTab = () => {
     }
   };
 
-  const solve = () => setResult(solveTransient(input));
+  const solve = () => { try { setError(''); setResult(solveTransient(input)); } catch (e) { setResult(null); setError(e instanceof Error ? e.message : 'Unverified transient.'); } };
 
   // Simple SVG chart
   const renderChart = () => {
@@ -124,6 +125,7 @@ const TransientTab = () => {
         </Button>
       </div>
 
+      {error && <p role="alert" className="text-destructive">{error}</p>}
       {result && (
         <div className="space-y-4 animate-slide-up">
           <div className="p-4 rounded-lg bg-card border border-border">
