@@ -12,6 +12,7 @@ import {
   ChevronUp, Download, ArrowLeft, Loader2, FlaskConical, Zap, Brain, Globe, Sparkles, History
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import ET310Coverage from '@/components/ET310Coverage';
 
 const AdminPage = () => {
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -251,6 +252,7 @@ const AdminPage = () => {
       </div>
 
       <div className="container px-4 py-8 max-w-5xl mx-auto space-y-6">
+        <ET310Coverage />
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

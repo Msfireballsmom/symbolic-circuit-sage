@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, BarChart3, Bookmark, Trophy, Camera, Crown, BookCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { TAB_TIER_REQUIREMENTS, tierMeetsRequirement, TierKey } from "@/lib/tier-config";
+import ET310Coverage from '@/components/ET310Coverage';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("quick");
@@ -59,8 +60,13 @@ const Index = () => {
 
       {/* Solver Tabs */}
       <main className="container px-4 py-8">
+        {['ac', 'laplace', 'fourier', 'bode'].includes(activeTab) && <p role="status" className="text-warning text-xs mb-4">
+          Preview / unverified domain — coming soon for full course certification. Only the explicitly tested fixtures in developer coverage are certified; other results are not verified final answers.
+        </p>}
+        {import.meta.env.DEV && activeTab === 'coverage' && <ET310Coverage />}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-card border border-border h-auto p-1 flex-wrap">
+            {import.meta.env.DEV && <TabsTrigger value="coverage" className="text-xs">ET310 Coverage</TabsTrigger>}
             <TabsTrigger value="quick" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Calculator className="w-4 h-4" />
               Quick Solve

@@ -84,12 +84,12 @@ function getAnalyticCoefficients(type: WaveformType, A: number, n: number, duty:
       // a_n = 0 (odd symmetry), b_n = 4A/(nπ) for odd n, 0 for even
       return { an: 0, bn: n % 2 === 1 ? (4 * A) / (n * Math.PI) : 0 };
     case 'sawtooth':
-      // a_n = 0, b_n = -2A/(nπ) × (-1)^n = 2A/(nπ) × (-1)^(n+1)
-      return { an: 0, bn: (2 * A / (n * Math.PI)) * Math.pow(-1, n + 1) };
+      // Defined on [0,T): f(t)=A(2t/T−1). Integration by parts gives −2A/(nπ).
+      return { an: 0, bn: -2 * A / (n * Math.PI) };
     case 'triangle':
-      // b_n = 0 (even symmetry), a_n = -8A/(n²π²) for odd n (alternating)
+      // The plotted waveform starts at −A, peaks at T/2; every odd cosine coefficient is negative.
       if (n % 2 === 0) return { an: 0, bn: 0 };
-      return { an: (8 * A / (n * n * Math.PI * Math.PI)) * Math.pow(-1, (n - 1) / 2), bn: 0 };
+      return { an: -8 * A / (n * n * Math.PI * Math.PI), bn: 0 };
     default:
       return { an: NaN, bn: NaN }; // fall through to numerical
   }
@@ -255,13 +255,13 @@ export function solveFourier(input: FourierInput): FourierResult {
         steps.push(`    a${n} = 0, b${n} = 0 (half-wave symmetry → even harmonics vanish)`);
       } else if (waveform === 'sawtooth') {
         steps.push(`    a${n} = 0 (odd symmetry)`);
-        steps.push(`    b${n} = 2A/(${n}π) × (-1)^(${n}+1) = ${bn.toFixed(6)}`);
+        steps.push(`    b${n} = -2A/(${n}π) = ${bn.toFixed(6)}`);
       } else if (waveform === 'triangle') {
         if (n % 2 === 0) {
           steps.push(`    a${n} = 0, b${n} = 0 (half-wave symmetry)`);
         } else {
           steps.push(`    b${n} = 0 (even symmetry)`);
-          steps.push(`    a${n} = 8A/(${n}²π²) × (-1)^((${n}-1)/2) = ${an.toFixed(6)}`);
+          steps.push(`    a${n} = -8A/(${n}²π²) = ${an.toFixed(6)}`);
         }
       } else {
         steps.push(`    a${n} = ${an.toFixed(6)}`);
@@ -351,7 +351,7 @@ export function solveFourier(input: FourierInput): FourierResult {
   
   const parsevalMatch = Math.abs(powerTime - powerFreq) / Math.max(powerTime, 1e-12) < 0.05;
   steps.push(parsevalMatch 
-    ? `  ✓ Parseval's theorem verified (${((powerFreq / powerTime) * 100).toFixed(1)}% of total power captured)`
+    ? `  Truncated series captures ${((powerFreq / powerTime) * 100).toFixed(1)}% of estimated power; this is convergence evidence, not exact verification.`
     : `  ⚠ Partial power capture — add more harmonics for convergence`);
   steps.push(``);
 
