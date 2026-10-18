@@ -60,7 +60,7 @@ describe('Production verification guards', () => {
     expect(ExtractionSchema.safeParse({ components: [{ type: 'resistor', label: 'R1', value: 100 }], analysisMethod: 'dc_nodal', findWhat: ['voltage'], confidence: 1 }).success).toBe(false);
   });
   it('rejects parallel AC rather than applying the series formula', () => {
-    expect(() => solveAC({ Vm: 10, phase: 0, frequency: 60, R: 100, L: 0.1, C: 1e-6, config: 'parallel' })).toThrow(/series/i);
+    expect(() => solveAC({ Vm: 10, phase: 0, frequency: 60, R: 100, L: 0.1, C: 1e-6, config: 'parallel' })).toThrow(/parallel AC topology is not implemented/i);
   });
   it('escapes user export content and defaults to uncertified status', () => {
     const write = vi.fn();
