@@ -1,3 +1,4 @@
+import { ExtractionSchema } from "@/lib/extraction-schema";
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,10 +64,6 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { markSolveCompleted } = useFreeRun();
 
-  // The monthly free run is charged only once a solve has produced a result.
-  useEffect(() => {
-    if (result || confirmed) markSolveCompleted();
-  }, [result, confirmed, markSolveCompleted]);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const handleParse = () => {
@@ -83,8 +80,10 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) { setError('Upload a PNG, JPEG or WebP image up to 5 MB. PDF/DOCX recognition is unsupported; paste its text instead.'); return; }
     // Convert to base64
     const reader = new FileReader();
+    reader.onerror = () => { setError('Image could not be read.'); setIsExtracting(false); };
     reader.onload = async () => {
       const base64 = reader.result as string;
       setUploadedImage(base64);
@@ -104,7 +103,8 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
         if (data?.error) throw new Error(data.error);
 
         // Convert AI extraction to ParsedProblem format
-        const aiParsed = convertAIToParsed(data);
+        const validated = ExtractionSchema.parse(data);
+        const aiParsed = convertAIToParsed(validated);
         setParsed(aiParsed);
         setParseSteps(formatParsedSummary(aiParsed));
         
@@ -125,9 +125,9 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
     const components = (aiData.components || []).map((c: any) => ({
       type: mapComponentType(c.type),
       label: c.label || 'Unknown',
-      value: c.value || 0,
-      nodeA: c.nodeA ?? 1,
-      nodeB: c.nodeB ?? 0,
+      value: c.value,
+      nodeA: c.nodeA,
+      nodeB: c.nodeB,
       meshes: c.meshes,
       config: c.config,
       gain: c.gain,
@@ -146,7 +146,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
       topology: aiData.topology === 'mixed' ? undefined : aiData.topology,
       findWhat: aiData.findWhat || ['all'],
       rawText: aiData.problemDescription || '',
-      confidence: aiData.confidence || 0.5,
+      confidence: aiData.confidence,
       warnings: aiData.warnings || [],
     };
   };
@@ -161,231 +161,6 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
       transformer: 'transformer', switch: 'switch',
     };
     return map[aiType] || aiType;
-  };
-
-  const handleSolve = () => {
-    if (!parsed) return;
-    setError("");
-
-    try {
-      const { components, method, topology } = parsed;
-      const resistors = components.filter(c => c.type === 'resistor');
-      const vSources = components.filter(c => c.type === 'voltage_source');
-      const caps = components.filter(c => c.type === 'capacitor');
-      const inds = components.filter(c => c.type === 'inductor');
-      const opamps = components.filter(c => c.type === 'opamp');
-      const diodes = components.filter(c => c.type === 'diode');
-      const depSources = components.filter(c => 
-        c.type === 'dependent_voltage_source' || c.type === 'dependent_current_source'
-      );
-
-      // Handle advanced circuit types first
-      if (method === 'opamp' || opamps.length > 0) {
-        const opamp = opamps[0];
-        const config = (opamp as any)?.config || 'inverting';
-        const Rf = resistors.find(r => r.label.match(/[Rr][Ff]/))?.value || resistors[1]?.value || 100000;
-        const Rin = resistors.find(r => r.label.match(/[Rr](1|[Ii][Nn])/))?.value || resistors[0]?.value || 10000;
-        const Vin = vSources[0]?.value || 1;
-        const C = caps[0]?.value;
-        
-        setResult({
-          type: 'quick',
-          data: solveOpAmp({
-            config, Rf, Rin, Vin,
-            Vin2: vSources[1]?.value,
-            R2: resistors[2]?.value,
-            C,
-            frequency: parsed.frequency,
-          }),
-        });
-        return;
-      }
-
-      if (method === 'diode_analysis' || diodes.length > 0) {
-        const diode = diodes[0];
-        const config = (diode as any)?.config || 'forward';
-        const Vs = vSources[0]?.value || 12;
-        const R = resistors[0]?.value || 1000;
-        
-        setResult({
-          type: 'quick',
-          data: solveDiode({
-            config, Vs, R,
-            Vd: diode?.value || 0.7,
-          }),
-        });
-        return;
-      }
-
-      if (method === 'dependent_source' || depSources.length > 0) {
-        const depComps = components.map(c => {
-          if (c.type === 'dependent_voltage_source') {
-            return {
-              type: 'vcvs' as const,
-              value: 0,
-              nodeA: c.nodeA || 1,
-              nodeB: c.nodeB || 0,
-              controlNodeA: 1,
-              controlNodeB: 0,
-              gain: (c as any).gain || 1,
-            };
-          }
-          if (c.type === 'dependent_current_source') {
-            return {
-              type: 'vccs' as const,
-              value: 0,
-              nodeA: c.nodeA || 1,
-              nodeB: c.nodeB || 0,
-              controlNodeA: 1,
-              controlNodeB: 0,
-              gain: (c as any).gain || 1,
-            };
-          }
-          return {
-            type: c.type as 'resistor' | 'voltage_source' | 'current_source',
-            value: c.value,
-            nodeA: c.nodeA || 1,
-            nodeB: c.nodeB || 0,
-          };
-        });
-        
-        setResult({
-          type: 'dep',
-          data: solveWithDependentSources(depComps),
-        });
-        return;
-      }
-
-      // Original linear circuit solvers
-      switch (method) {
-        case 'ohms_law': {
-          const R = resistors[0]?.value;
-          const V = vSources[0]?.value;
-          setResult({ type: 'quick', data: solveOhmsLaw({ V, R }) });
-          break;
-        }
-        case 'power': {
-          const R = resistors[0]?.value;
-          const V = vSources[0]?.value;
-          setResult({ type: 'quick', data: solvePower({ V, R }) });
-          break;
-        }
-        case 'voltage_divider': {
-          const Vs = vSources[0]?.value || 0;
-          const R1 = resistors[0]?.value || 0;
-          const R2 = resistors[1]?.value || 0;
-          setResult({ type: 'quick', data: solveVoltageDivider(Vs, R1, R2) });
-          break;
-        }
-        case 'current_divider': {
-          const Is = components.find(c => c.type === 'current_source')?.value || 0;
-          const R1 = resistors[0]?.value || 0;
-          const R2 = resistors[1]?.value || 0;
-          setResult({ type: 'quick', data: solveCurrentDivider(Is, R1, R2) });
-          break;
-        }
-        case 'series_parallel': {
-          const vals = resistors.map(r => r.value);
-          setResult({ type: 'quick', data: solveSeriesParallel(vals, topology || 'series') });
-          break;
-        }
-        case 'thevenin': {
-          const Voc = vSources[0]?.value || 0;
-          const Rth = resistors[0]?.value || 1;
-          const Isc = Voc / Rth;
-          setResult({ type: 'quick', data: solveThevenin(Voc, Isc) });
-          break;
-        }
-        case 'dc_nodal': {
-          const dcComps = components
-            .filter(c => ['resistor', 'voltage_source', 'current_source'].includes(c.type))
-            .map(c => ({
-              type: c.type as 'resistor' | 'voltage_source' | 'current_source',
-              value: c.value,
-              nodeA: c.nodeA || 1,
-              nodeB: c.nodeB || 0,
-            }));
-          setResult({ type: 'dc', data: solveDC(dcComps) });
-          break;
-        }
-        case 'mesh': {
-          const allMeshes = new Set<number>();
-          components.forEach(c => c.meshes?.forEach(m => allMeshes.add(m)));
-          const numMeshes = allMeshes.size || 2;
-
-          const meshComps: MeshComponent[] = components.map(c => ({
-            type: c.type === 'resistor' ? 'resistor' : c.type === 'voltage_source' ? 'voltage_source' : 'current_source',
-            value: c.value,
-            meshes: c.meshes || [1],
-            label: c.label,
-          }));
-          setResult({ type: 'mesh', data: solveMesh(numMeshes, meshComps) });
-          break;
-        }
-        case 'transient': {
-          const R = resistors[0]?.value || 1000;
-          const C = caps[0]?.value;
-          const L = inds[0]?.value;
-          const Vs = vSources[0]?.value || 0;
-          const isRC = !!C;
-          setResult({
-            type: 'transient',
-            data: solveTransient({
-              type: isRC ? 'RC' : 'RL',
-              R,
-              L_or_C: isRC ? C! : (L || 0.1),
-              Vs,
-              initialValue: parsed.initialVoltage ?? parsed.initialCurrent ?? 0,
-              tFinal: isRC ? 5 * R * C! : 5 * (L || 0.1) / R,
-            })
-          });
-          break;
-        }
-        case 'ac_phasor': {
-          const R = resistors[0]?.value || 100;
-          const L = inds[0]?.value || 0;
-          const C = caps[0]?.value || 0;
-          const Vm = vSources[0]?.value || 120;
-          const freq = parsed.frequency || 60;
-          setResult({
-            type: 'ac',
-            data: solveAC({
-              Vm, phase: parsed.phase || 0, frequency: freq,
-              R, L, C, config: topology || 'series'
-            })
-          });
-          break;
-        }
-        case 'rlc': {
-          const R = resistors[0]?.value || 100;
-          const L = inds[0]?.value || 0.1;
-          const C = caps[0]?.value || 1e-6;
-          const Vs = vSources[0]?.value || 0;
-          setResult({
-            type: 'rlc',
-            data: solveRLC({
-              topology: topology || 'series', R, L, C, Vs,
-              excitation: Vs > 0 ? 'step' : 'natural',
-              vC0: parsed.initialVoltage ?? 0,
-              iL0: parsed.initialCurrent ?? 0,
-              tFinal: 10 / (R / (2 * L)),
-            })
-          });
-          break;
-        }
-        default: {
-          if (resistors.length > 0 && vSources.length > 0) {
-            setResult({ type: 'quick', data: solveOhmsLaw({ V: vSources[0].value, R: resistors[0].value }) });
-          } else if (resistors.length >= 2) {
-            setResult({ type: 'quick', data: solveSeriesParallel(resistors.map(r => r.value), 'series') });
-          } else {
-            setError("Couldn't determine how to solve. Try being more specific about the analysis method.");
-          }
-        }
-      }
-    } catch (e: any) {
-      setError(e.message || "Solver error — check your values");
-    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -428,7 +203,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
             Paste, Type, or Upload — Auto-Parse & Solve
           </CardTitle>
           <p className="text-[10px] text-muted-foreground">
-            Supports linear & nonlinear circuits: op-amps, diodes, dependent sources, transistors, RLC, mesh, nodal — upload an image or paste text.
+            Draft extraction only. Confirmed DC networks and first-order RC/RL have a deterministic path; unsupported parts and ambiguous connections withhold answers.
           </p>
         </CardHeader>
         <CardContent className="p-4 pt-2 space-y-4">
@@ -447,7 +222,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
 
           <textarea
             value={problemText}
-            onChange={(e) => { setProblemText(e.target.value); setParsed(null); setResult(null); }}
+            onChange={(e) => { setProblemText(e.target.value); setParsed(null); setConfirmed(null); setResult(null); }}
             placeholder={`Paste your circuit problem here...\n\nExamples:\n• "Inverting op-amp: Rf = 100kΩ, Rin = 10kΩ, Vin = 0.5V"\n• "Half-wave rectifier: Vs = 12V peak, R = 1kΩ"\n• "Zener regulator: Vs = 15V, R = 330Ω, Vz = 5.1V"\n• "Nodal analysis with dependent source: VCCS gm = 0.01S"\n\nOr upload a photo of your circuit/homework!`}
             className="w-full h-36 rounded-md bg-muted/50 border border-border p-3 text-sm font-mono text-foreground placeholder:text-muted-foreground/50 resize-y focus:outline-none focus:ring-1 focus:ring-primary"
           />
@@ -456,18 +231,13 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
             <Button onClick={handleParse} variant="outline" className="gap-2 text-xs" disabled={!problemText.trim()}>
               <Play className="w-3.5 h-3.5" /> Parse Text
             </Button>
-            {parsed && (
-              <Button onClick={handleSolve} variant="outline" className="gap-2 text-xs">
-                <Play className="w-3.5 h-3.5" /> Legacy solve ({formatMethod(parsed.method)})
-              </Button>
-            )}
             <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => imageInputRef.current?.click()} disabled={isExtracting}>
               <Image className="w-3.5 h-3.5" /> Upload Image
             </Button>
             <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={() => fileInputRef.current?.click()}>
               <Upload className="w-3.5 h-3.5" /> Upload .txt
             </Button>
-            <input ref={imageInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleImageUpload} />
+            <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleImageUpload} />
             <input ref={fileInputRef} type="file" accept=".txt,.md,text/*" className="hidden" onChange={handleFileUpload} />
             {(problemText || uploadedImage) && (
               <Button variant="ghost" size="sm" className="gap-1 text-xs text-destructive" onClick={handleClear}>
@@ -525,13 +295,16 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
                 <tbody>
                   {parsed.components.map((comp, i) => (
                     <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30">
-                      <td className="p-2 font-mono text-foreground">{comp.type.replace(/_/g, ' ')}</td>
+                      <td className="p-2 font-mono text-foreground"><select aria-label={`Type of ${comp.label}`} value={comp.type} className="bg-background text-foreground border border-border" onChange={e => { setConfirmed(null); setParsed({ ...parsed, components: parsed.components.map((c, j) => j === i ? { ...c, type: e.target.value as typeof comp.type } : c) }); }}>
+                        {['resistor', 'voltage_source', 'current_source', 'capacitor', 'inductor', 'opamp', 'diode', 'dependent_voltage_source', 'dependent_current_source', 'transformer', 'switch'].map(type => <option key={type} value={type}>{type.replace(/_/g, ' ')}</option>)}
+                      </select></td>
                       <td className="p-2">
                         <input
                           className="w-full bg-transparent border-b border-border/50 focus:border-primary outline-none font-mono text-foreground px-0.5"
                           value={comp.label}
                           onChange={e => {
-                            const updated = { ...parsed };
+                            setConfirmed(null);
+                            const updated = { ...parsed, components: [...parsed.components] };
                             updated.components[i] = { ...comp, label: e.target.value };
                             setParsed({ ...updated });
                           }}
@@ -541,10 +314,11 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
                         <input
                           type="number"
                           className="w-20 bg-transparent border-b border-border/50 focus:border-primary outline-none font-mono text-foreground px-0.5"
-                          value={comp.value}
+                          value={Number.isFinite(comp.value) ? comp.value : ""}
                           onChange={e => {
-                            const updated = { ...parsed };
-                            updated.components[i] = { ...comp, value: parseFloat(e.target.value) || 0 };
+                            setConfirmed(null);
+                            const updated = { ...parsed, components: [...parsed.components] };
+                            updated.components[i] = { ...comp, value: e.target.value.trim() ? Number(e.target.value) : NaN };
                             setParsed({ ...updated });
                           }}
                         />
@@ -553,10 +327,11 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
                         <input
                           type="number"
                           className="w-12 bg-transparent border-b border-border/50 focus:border-primary outline-none font-mono text-foreground px-0.5"
-                          value={comp.nodeA}
+                          value={comp.nodeA ?? ""}
                           onChange={e => {
-                            const updated = { ...parsed };
-                            updated.components[i] = { ...comp, nodeA: parseInt(e.target.value) || 0 };
+                            setConfirmed(null);
+                            const updated = { ...parsed, components: [...parsed.components] };
+                            updated.components[i] = { ...comp, nodeA: e.target.value.trim() ? Number(e.target.value) : undefined };
                             setParsed({ ...updated });
                           }}
                         />
@@ -565,10 +340,11 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
                         <input
                           type="number"
                           className="w-12 bg-transparent border-b border-border/50 focus:border-primary outline-none font-mono text-foreground px-0.5"
-                          value={comp.nodeB}
+                          value={comp.nodeB ?? ""}
                           onChange={e => {
-                            const updated = { ...parsed };
-                            updated.components[i] = { ...comp, nodeB: parseInt(e.target.value) || 0 };
+                            setConfirmed(null);
+                            const updated = { ...parsed, components: [...parsed.components] };
+                            updated.components[i] = { ...comp, nodeB: e.target.value.trim() ? Number(e.target.value) : undefined };
                             setParsed({ ...updated });
                           }}
                         />
@@ -577,7 +353,8 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
                         <button
                           className="text-destructive/50 hover:text-destructive"
                           onClick={() => {
-                            const updated = { ...parsed };
+                            setConfirmed(null);
+                            const updated = { ...parsed, components: [...parsed.components] };
                             updated.components = parsed.components.filter((_, j) => j !== i);
                             setParsed({ ...updated });
                           }}
@@ -600,7 +377,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <Button
-                onClick={() => setConfirmed(JSON.parse(JSON.stringify(parsed)))}
+                onClick={() => setConfirmed(structuredClone(parsed))}
                 className="gap-2 text-xs"
               >
                 <CheckCircle className="w-3.5 h-3.5" /> Confirm netlist &amp; solve
@@ -625,7 +402,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
         </Card>
       )}
 
-      {confirmed && <VerifiedSolution parsed={confirmed} />}
+      {confirmed && <VerifiedSolution parsed={confirmed} onSolved={markSolveCompleted} />}
 
       {/* Error */}
       {error && (
@@ -634,136 +411,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
         </div>
       )}
 
-      {/* Solution Results */}
-      {result && (
-        <Card className="border-border animate-slide-up">
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-success" />
-              Legacy solver output
-              <Badge variant="outline" className="text-[9px]">preview — not power-verified</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-2">
-            {result.type === 'quick' && (
-              <div>
-                <h4 className="text-sm font-semibold mb-3">{result.data.title}</h4>
-                <div className="flex flex-wrap gap-3 mb-4">
-                  {result.data.results.map((r, i) => (
-                    <div key={i} className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
-                      <span className="text-xs text-muted-foreground">{r.label}</span>
-                      <p className="text-lg font-mono font-bold text-primary glow-text">
-                        {r.value} <span className="text-xs text-muted-foreground">{r.unit}</span>
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                <StepDisplay steps={result.data.steps} />
-              </div>
-            )}
 
-            {result.type === 'dc' && (
-              <div>
-                <h4 className="text-sm font-semibold mb-3">DC Nodal Analysis</h4>
-                <div className="flex flex-wrap gap-3 mb-4">
-                  {result.data.nodeVoltages.map(nv => (
-                    <div key={nv.node} className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
-                      <span className="text-xs text-muted-foreground">V{nv.node}</span>
-                      <p className="text-lg font-mono font-bold text-primary glow-text">{nv.voltage.toFixed(4)} V</p>
-                    </div>
-                  ))}
-                </div>
-                <MatrixDisplay G={result.data.matrix.G} I={result.data.matrix.I} labels={result.data.matrix.labels} />
-                <StepDisplay steps={result.data.steps} />
-              </div>
-            )}
-
-            {result.type === 'mesh' && (
-              <div>
-                <h4 className="text-sm font-semibold mb-3">Mesh Analysis</h4>
-                <div className="flex flex-wrap gap-3 mb-4">
-                  {result.data.meshCurrents.map(mc => (
-                    <div key={mc.mesh} className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
-                      <span className="text-xs text-muted-foreground">i{mc.mesh}</span>
-                      <p className="text-lg font-mono font-bold text-primary glow-text">{mc.current.toFixed(6)} A</p>
-                    </div>
-                  ))}
-                </div>
-                <StepDisplay steps={result.data.steps} />
-              </div>
-            )}
-
-            {result.type === 'transient' && (
-              <div>
-                <h4 className="text-sm font-semibold mb-3">Transient Analysis</h4>
-                <div className="flex flex-wrap gap-3 mb-4">
-                  <div className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
-                    <span className="text-xs text-muted-foreground">τ</span>
-                    <p className="text-lg font-mono font-bold text-primary glow-text">{result.data.tau.toExponential(3)} s</p>
-                  </div>
-                  <div className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
-                    <span className="text-xs text-muted-foreground">Final Value</span>
-                    <p className="text-lg font-mono font-bold text-primary glow-text">{result.data.finalValue.toFixed(4)}</p>
-                  </div>
-                </div>
-                <div className="p-2 rounded bg-muted/50 border border-border font-mono text-xs text-equation mb-3">
-                  {result.data.equation}
-                </div>
-                <StepDisplay steps={result.data.steps} />
-              </div>
-            )}
-
-            {result.type === 'ac' && (
-              <div>
-                <h4 className="text-sm font-semibold mb-3">AC Phasor Analysis</h4>
-                <div className="flex flex-wrap gap-3 mb-4">
-                  <div className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
-                    <span className="text-xs text-muted-foreground">P (Real)</span>
-                    <p className="text-lg font-mono font-bold text-primary glow-text">{result.data.powerReal.toFixed(3)} W</p>
-                  </div>
-                  <div className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
-                    <span className="text-xs text-muted-foreground">PF</span>
-                    <p className="text-lg font-mono font-bold text-primary glow-text">{result.data.powerFactor.toFixed(4)}</p>
-                  </div>
-                </div>
-                <StepDisplay steps={result.data.steps} />
-              </div>
-            )}
-
-            {result.type === 'rlc' && (
-              <div>
-                <h4 className="text-sm font-semibold mb-3">RLC Analysis ({result.data.dampingType})</h4>
-                <div className="flex flex-wrap gap-3 mb-4">
-                  <div className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
-                    <span className="text-xs text-muted-foreground">α</span>
-                    <p className="text-lg font-mono font-bold text-primary glow-text">{result.data.alpha.toFixed(4)}</p>
-                  </div>
-                  <div className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
-                    <span className="text-xs text-muted-foreground">ω₀</span>
-                    <p className="text-lg font-mono font-bold text-primary glow-text">{result.data.omega0.toFixed(4)}</p>
-                  </div>
-                </div>
-                <StepDisplay steps={result.data.steps} />
-              </div>
-            )}
-
-            {result.type === 'dep' && (
-              <div>
-                <h4 className="text-sm font-semibold mb-3">MNA with Dependent Sources</h4>
-                <div className="flex flex-wrap gap-3 mb-4">
-                  {result.data.nodeVoltages.map(nv => (
-                    <div key={nv.node} className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
-                      <span className="text-xs text-muted-foreground">V{nv.node}</span>
-                      <p className="text-lg font-mono font-bold text-primary glow-text">{nv.voltage.toFixed(4)} V</p>
-                    </div>
-                  ))}
-                </div>
-                <StepDisplay steps={result.data.steps} />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };
