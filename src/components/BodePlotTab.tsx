@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, BarChart3 } from "lucide-react";
 import StepDisplay from "./StepDisplay";
+import { parseQuantity } from '@/lib/quantity';
 
 type FilterType = 'rc_lowpass' | 'rc_highpass' | 'rlc_bandpass' | 'rlc_series';
 
@@ -23,13 +24,16 @@ const BodePlotTab = () => {
   const [fEnd, setFEnd] = useState('100000');
   const [points, setPoints] = useState<BodePoint[]>([]);
   const [steps, setSteps] = useState<string[]>([]);
+  const [error, setError] = useState('');
 
   const solve = () => {
-    const r = parseFloat(R) || 1000;
-    const c = parseFloat(C) || 1e-6;
-    const l = parseFloat(L) || 0.1;
-    const fs = parseFloat(fStart) || 1;
-    const fe = parseFloat(fEnd) || 100000;
+    setError(''); setPoints([]); setSteps([]);
+    let r: number, c: number, l: number, fs: number, fe: number;
+    try {
+      r = parseQuantity(R, 'Ω'); c = parseQuantity(C, 'F'); l = parseQuantity(L, 'H');
+      fs = parseQuantity(fStart, 'Hz'); fe = parseQuantity(fEnd, 'Hz');
+      if ([r,c,l,fs,fe].some(v => v <= 0) || fe <= fs) throw new Error('Positive component values and an increasing frequency range are required.');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Invalid quantities.'); return; }
 
     const newSteps: string[] = [];
     newSteps.push(`═══════════════════════════════════════`);
@@ -131,7 +135,7 @@ const BodePlotTab = () => {
     const keyFreqs = [fc / 10, fc / 2, fc, fc * 2, fc * 10].filter(f => f >= fs && f <= fe);
     keyFreqs.forEach(f => {
       const pt = newPoints.reduce((a, b) => Math.abs(b.freq - f) < Math.abs(a.freq - f) ? b : a);
-      newSteps.push(`  f = ${f.toFixed(1)} Hz: |H| = ${pt.magDb.toFixed(2)} dB, ∠H = ${pt.phaseDeg.toFixed(1)}°`);
+      newSteps.push(`  nearest plotted sample f = ${pt.freq.toFixed(1)} Hz (target ${f.toFixed(1)} Hz): |H| ≈ ${pt.magDb.toFixed(2)} dB, ∠H ≈ ${pt.phaseDeg.toFixed(1)}°`);
     });
     newSteps.push(``);
     newSteps.push(`STEP 4: Asymptotic behavior`);
@@ -153,7 +157,7 @@ const BodePlotTab = () => {
   };
 
   const renderBodePlot = () => {
-    if (points.length === 0) return null;
+    if (points.length === 0) return error ? <p role="alert" className="text-destructive">{error}</p> : null;
 
     const W = 640, H = 180, pad = 50, padR = 20;
     const plotW = W - pad - padR;

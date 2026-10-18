@@ -305,9 +305,7 @@ const PracticeExamTab = () => {
                     <span className="text-muted-foreground font-mono shrink-0">Q{i + 1}.</span>
                     <div className="flex-1">
                       <p className="text-foreground">{q.question}</p>
-                      {q.solution && (
-                        <p className="mt-1 text-equation font-mono text-[11px]">Unverified notes: {q.solution}</p>
-                      )}
+                      <p className="mt-1 text-warning text-[11px]">Answer key coming soon — not independently checked.</p>
                       {answers[q.id] && (
                         <p className="mt-1 text-muted-foreground">Your work: {answers[q.id]}</p>
                       )}
@@ -394,7 +392,7 @@ const PracticeExamTab = () => {
               onClick={() => setShowSolution(prev => ({ ...prev, [q.id]: !prev[q.id] }))}
             >
               {showSolution[q.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              {showSolution[q.id] ? 'Hide Solution' : 'View notes (unverified)'}
+              {showSolution[q.id] ? 'Hide status' : 'Answer-key status'}
             </Button>
           </div>
 
@@ -409,8 +407,7 @@ const PracticeExamTab = () => {
 
           {showSolution[q.id] && q.solution && (
             <div className="mt-3 p-3 rounded-md bg-success/10 border border-success/30">
-              <p className="text-xs font-semibold text-success mb-1">Unverified notes — not a final answer:</p>
-              <p className="text-xs text-success/80 font-mono">{q.solution}</p>
+              <p className="text-xs text-warning">Answer withheld — this practice answer key has not passed independent checks.</p>
             </div>
           )}
         </CardContent>

@@ -40,12 +40,11 @@ export async function readBody(req: Request, maxBytes: number): Promise<unknown>
 }
 
 /** Preserve existing model/protocol; retry only explicit transient HTTP failures.
- * A five-minute infrastructure deadline avoids indefinitely held requests.
- * Timeout/network ambiguity is never replayed because inference may be billed. */
+ * Network ambiguity is never replayed because inference may be billed. */
 export async function gatewayFetch(url: string, init: RequestInit) {
   for (let attempt = 0; attempt < 2; attempt++) {
     let response: Response;
-    try { response = await fetch(url, { ...init, signal: AbortSignal.timeout(300000) }); }
+    try { response = await fetch(url, init); }
     catch { throw new RequestError(504, 'AI request did not complete. No answer was produced or retried.'); }
     if (attempt === 0 && (response.status === 429 || response.status >= 500)) {
       const wait = Number(response.headers.get('Retry-After') ?? '2');
