@@ -81,7 +81,7 @@ export function preflight(model: CircuitModel): PreflightResult {
   // --- reference node ---
   const groundNodes = model.nodes.filter(n => n.isGround);
   const refNode = model.meta.referenceNode;
-  if (groundNodes.length === 0 && !refNode) {
+  if (groundNodes.length > 1 || !nodeById.has(groundNodes[0]?.id ?? refNode)) {
     blocking.push({
       code: "no-reference-node",
       severity: "blocking",
@@ -93,6 +93,9 @@ export function preflight(model: CircuitModel): PreflightResult {
 
   // --- per-component checks ---
   for (const c of model.components) {
+    if (model.components.filter(other => other.id === c.id).length !== 1 || c.terminals.includes('unresolved') || c.terminals.length !== 2 || Number.isNaN(c.value.magnitude) || (!Number.isFinite(c.value.magnitude) && !(c.kind === 'resistor' && c.value.magnitude === Infinity))) {
+      blocking.push({ code: 'dangling-terminal', severity: 'blocking', refs: [c.id], message: `${c.id}: duplicate label, missing/invalid value, or unresolved connection.`, fix: 'Enter a unique label, value and both nodes.' });
+    }
     // dangling terminals
     for (const t of c.terminals) {
       const node = nodeById.get(t);
@@ -131,7 +134,7 @@ export function preflight(model: CircuitModel): PreflightResult {
         fix: `Add the unit — expected ${expected ?? "an SI unit"}.`,
         region: c.provenance.region,
       });
-    } else if (expected && c.value.unit !== expected && c.value.unit !== "unitless") {
+    } else if (expected && c.value.unit !== expected) {
       blocking.push({
         code: "unit-mismatch",
         severity: "blocking",

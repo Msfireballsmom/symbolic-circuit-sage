@@ -42,7 +42,8 @@ export interface ModelBuild {
 }
 
 function nodeName(n: number | undefined): string {
-  const v = n ?? 0;
+  const v = n;
+  if (v === undefined || !Number.isInteger(v) || v < 0) return "unresolved";
   return v === 0 ? "gnd" : `n${v}`;
 }
 

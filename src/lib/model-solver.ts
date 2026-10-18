@@ -406,7 +406,7 @@ export function theveninAt(model: CircuitModel, node: string): TheveninResult {
   const test = solveDCOperatingPoint(model, { killSources: true, testCurrentNode: node });
   const testSource: Component = { id: '__verification_test', kind: 'isource', terminals: [node, groundId(model)], value: { magnitude: 1, unit: 'amp' }, confidence: { exists: 1, value: 1 }, provenance: { from: 'text' } };
   const killed = model.components.map(c => isIndependent(c) ? { ...c, value: { ...c.value, magnitude: 0 } } : c);
-  assertVerified({ ...model, components: [...killed, testSource] }, test);
+  assertVerified({ ...model, components: [...killed, testSource] }, { ...test, branchCurrents: { ...test.branchCurrents, __verification_test: 1 } });
   const rth = test.nodeVoltages[node];
   if (!Number.isFinite(rth) || Math.abs(rth) < 1e-12) {
     throw new UnsupportedProblemError(
