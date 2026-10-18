@@ -259,7 +259,7 @@ const PracticeExamTab = () => {
 
   if (mode === 'results' && score) {
     const pct = Math.round((score.correct / score.total) * 100);
-    const grade = pct >= 90 ? 'A' : pct >= 80 ? 'B' : pct >= 70 ? 'C' : pct >= 60 ? 'D' : 'F';
+    const grade = 'Not graded';
     
     return (
       <div className="space-y-6">
@@ -271,22 +271,22 @@ const PracticeExamTab = () => {
               <div className="flex items-center justify-center gap-4 mt-4">
                 <div className="text-center">
                   <p className="text-4xl font-mono font-bold text-primary">{pct}%</p>
-                  <p className="text-xs text-muted-foreground">Score</p>
+                  <p className="text-xs text-muted-foreground">Unassisted completion</p>
                 </div>
                 <div className="text-center">
                   <p className={`text-4xl font-mono font-bold ${pct >= 70 ? 'text-success' : 'text-destructive'}`}>{grade}</p>
-                  <p className="text-xs text-muted-foreground">Grade</p>
+                  <p className="text-xs text-muted-foreground">Answer checking unavailable</p>
                 </div>
                 <div className="text-center">
                   <p className="text-4xl font-mono font-bold text-foreground">{score.correct}/{score.total}</p>
-                  <p className="text-xs text-muted-foreground">Correct</p>
+                  <p className="text-xs text-muted-foreground">Attempted without notes</p>
                 </div>
               </div>
             </div>
 
             {/* By topic */}
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-foreground">Performance by Topic</h4>
+              <h4 className="text-sm font-semibold text-foreground">Completion by Topic</h4>
               {Object.entries(score.byTopic).map(([topic, data]) => (
                 <div key={topic} className="flex items-center gap-3">
                   <span className="text-xs text-muted-foreground w-20">{topic}</span>
@@ -306,7 +306,7 @@ const PracticeExamTab = () => {
                     <div className="flex-1">
                       <p className="text-foreground">{q.question}</p>
                       {q.solution && (
-                        <p className="mt-1 text-equation font-mono text-[11px]">→ {q.solution}</p>
+                        <p className="mt-1 text-equation font-mono text-[11px]">Unverified notes: {q.solution}</p>
                       )}
                       {answers[q.id] && (
                         <p className="mt-1 text-muted-foreground">Your work: {answers[q.id]}</p>
@@ -394,7 +394,7 @@ const PracticeExamTab = () => {
               onClick={() => setShowSolution(prev => ({ ...prev, [q.id]: !prev[q.id] }))}
             >
               {showSolution[q.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              {showSolution[q.id] ? 'Hide Solution' : 'Peek Solution (−1 point)'}
+              {showSolution[q.id] ? 'Hide Solution' : 'View notes (unverified)'}
             </Button>
           </div>
 
@@ -409,7 +409,7 @@ const PracticeExamTab = () => {
 
           {showSolution[q.id] && q.solution && (
             <div className="mt-3 p-3 rounded-md bg-success/10 border border-success/30">
-              <p className="text-xs font-semibold text-success mb-1">Solution:</p>
+              <p className="text-xs font-semibold text-success mb-1">Unverified notes — not a final answer:</p>
               <p className="text-xs text-success/80 font-mono">{q.solution}</p>
             </div>
           )}

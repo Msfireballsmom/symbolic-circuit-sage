@@ -1,3 +1,4 @@
+import { parseQuantity } from "@/lib/quantity";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ const CheckHomeworkTab = () => {
   const [studentAnswers, setStudentAnswers] = useState<Record<string, string>>({});
   const [comparison, setComparison] = useState<ComparisonResult[] | null>(null);
   const [steps, setSteps] = useState<string[] | null>(null);
+  const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
   const [overallPass, setOverallPass] = useState<boolean | null>(null);
 
@@ -150,6 +152,7 @@ const CheckHomeworkTab = () => {
   };
 
   const handleCheck = () => {
+    setError('');
     setChecking(true);
     setComparison(null);
     setSteps(null);
@@ -160,8 +163,10 @@ const CheckHomeworkTab = () => {
         const comparisons: ComparisonResult[] = [];
         let solverSteps: string[] = [];
 
-        const p = (k: string) => parseFloat(inputs[k] || "0");
-        const s = (k: string) => parseFloat(studentAnswers[k] || "0");
+        if (['opamp_inverting', 'opamp_noninverting', 'ac_phasor'].includes(problemType)) throw new Error('Coming soon: this homework domain has no independent verification.');
+        const units: Record<string, string> = { V: 'V', Vs: 'V', Voc: 'V', R: 'Ω', R1: 'Ω', R2: 'Ω', R3: 'Ω', Is: 'A', Isc: 'A', C: 'F', L: 'H', I: 'A', P: 'W', Vout: 'V', I1: 'A', Req: 'Ω', Rth: 'Ω', tau: 's', final: problemType === 'rc_transient' ? 'V' : 'A' };
+        const p = (k: string) => parseQuantity(inputs[k] ?? '', units[k] ?? '');
+        const s = (k: string) => parseQuantity(studentAnswers[k] ?? '', units[k] ?? '');
 
         switch (problemType) {
           case "ohms_law": {
@@ -257,6 +262,7 @@ const CheckHomeworkTab = () => {
           }
         }
 
+        if (!comparisons.length || comparisons.some(c => !Number.isFinite(c.correctValue) || !Number.isFinite(c.studentValue))) throw new Error('No finite, unit-consistent answer comparison; answer withheld.');
         // Calculate match and percent error
         comparisons.forEach(c => {
           if (Math.abs(c.correctValue) < 1e-10) {
@@ -275,7 +281,8 @@ const CheckHomeworkTab = () => {
         setOverallPass(allPass);
       } catch (e: any) {
         setComparison([]);
-        setSteps([`Error: ${e.message}`]);
+        setError(e.message);
+        setSteps(null);
         setOverallPass(false);
       }
       setChecking(false);
@@ -294,7 +301,7 @@ const CheckHomeworkTab = () => {
             Check My Homework
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Enter your circuit problem and your answers. The app solves it independently and compares — highlights exactly where you went wrong.
+            Calculator comparison within 2% for nonzero answers; not step-by-step grading or independent certification. Op-amp and AC checking are coming soon.
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -323,7 +330,7 @@ const CheckHomeworkTab = () => {
                     <div key={f.key}>
                       <label className="text-xs text-muted-foreground mb-1 block">{f.label}</label>
                       <Input
-                        type="number"
+                        type="text" inputMode="decimal"
                         placeholder={f.placeholder}
                         value={inputs[f.key] || ""}
                         onChange={e => setInputs(prev => ({ ...prev, [f.key]: e.target.value }))}
@@ -345,7 +352,7 @@ const CheckHomeworkTab = () => {
                     <div key={f.key}>
                       <label className="text-xs text-muted-foreground mb-1 block">{f.label}</label>
                       <Input
-                        type="number"
+                        type="text" inputMode="decimal"
                         placeholder="Enter your answer..."
                         value={studentAnswers[f.key] || ""}
                         onChange={e => setStudentAnswers(prev => ({ ...prev, [f.key]: e.target.value }))}
@@ -365,6 +372,7 @@ const CheckHomeworkTab = () => {
         </CardContent>
       </Card>
 
+      {error && <p role="alert" className="text-destructive">{error}</p>}
       {/* Results */}
       {comparison && comparison.length > 0 && (
         <Card className={`border-2 ${overallPass ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-destructive/30 bg-destructive/5'}`}>
@@ -373,7 +381,7 @@ const CheckHomeworkTab = () => {
               {overallPass ? (
                 <>
                   <CheckCircle className="w-5 h-5 text-emerald-400" />
-                  <span className="text-emerald-400">All Correct!</span>
+                  <span className="text-emerald-400">Answers match calculator tolerance (unverified)</span>
                 </>
               ) : (
                 <>
@@ -396,7 +404,7 @@ const CheckHomeworkTab = () => {
                         Your answer: {c.studentValue}
                       </span>
                       <ArrowRight className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-foreground">Correct: {c.correctValue.toFixed(6)}</span>
+                      <span className="text-foreground">Calculator: {c.correctValue.toPrecision(9)}</span>
                     </div>
                   </div>
                   <Badge variant="outline" className={`text-[10px] ${c.match ? 'border-emerald-500/30 text-emerald-400' : 'border-destructive/30 text-destructive'}`}>
