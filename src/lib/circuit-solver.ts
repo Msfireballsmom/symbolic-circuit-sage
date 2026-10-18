@@ -1,3 +1,6 @@
+import { buildCircuitModel } from "./parsed-to-model";
+import { solveDCOperatingPoint, solveQuestion, powerBalance, verifyKCL } from "./model-solver";
+import { requireIndependentAgreement } from "./independent-dc";
 // Circuit Analysis Engine - Core mathematical operations
 
 // ============ MATRIX OPERATIONS ============
@@ -52,171 +55,29 @@ export interface DCResult {
 }
 
 export function solveDC(components: DCComponent[]): DCResult {
-  const steps: string[] = [];
-  const nodes = new Set<number>();
-  components.forEach(c => { nodes.add(c.nodeA); nodes.add(c.nodeB); });
-  nodes.delete(0); // remove ground
-  const nodeList = Array.from(nodes).sort((a, b) => a - b);
-  const n = nodeList.length;
-  const idx = (node: number) => nodeList.indexOf(node);
-
-  steps.push(`Identified ${n} non-reference nodes: ${nodeList.map(n => `V${n}`).join(', ')}`);
-  steps.push(`Reference (ground) node: Node 0`);
-
-  // Check for voltage sources - use supernode if needed
-  const resistors = components.filter(c => c.type === 'resistor');
-  const vSources = components.filter(c => c.type === 'voltage_source');
-  const iSources = components.filter(c => c.type === 'current_source');
-
-  // Build conductance matrix G and current vector I
-  const G = Array.from({ length: n }, () => new Array(n).fill(0));
-  const I = new Array(n).fill(0);
-
-  // Add resistor contributions
-  resistors.forEach(r => {
-    const conductance = 1 / r.value;
-    const a = r.nodeA, b = r.nodeB;
-    if (a !== 0 && b !== 0) {
-      const ia = idx(a), ib = idx(b);
-      G[ia][ia] += conductance;
-      G[ib][ib] += conductance;
-      G[ia][ib] -= conductance;
-      G[ib][ia] -= conductance;
-    } else if (a !== 0) {
-      G[idx(a)][idx(a)] += conductance;
-    } else if (b !== 0) {
-      G[idx(b)][idx(b)] += conductance;
-    }
+  if (!components.length) throw new Error('No circuit components supplied.');
+  for (const c of components) {
+    if (!Number.isInteger(c.nodeA) || !Number.isInteger(c.nodeB) || c.nodeA < 0 || c.nodeB < 0) throw new Error('Node IDs must be nonnegative integers.');
+  }
+  const { model } = buildCircuitModel({
+    components: components.map((c, i) => ({ ...c, label: `${c.type}_${i + 1}` })),
+    method: 'dc_nodal', rawText: '', findWhat: ['all'], confidence: 1, warnings: [],
   });
-
-  steps.push(`Built conductance matrix [G] from ${resistors.length} resistor(s)`);
-
-  // Add current source contributions
-  iSources.forEach(s => {
-    // Current flows from nodeA to nodeB
-    if (s.nodeA !== 0) I[idx(s.nodeA)] -= s.value;
-    if (s.nodeB !== 0) I[idx(s.nodeB)] += s.value;
-  });
-
-  // Handle voltage sources connected to ground (simple case)
-  vSources.forEach(vs => {
-    if (vs.nodeB === 0 && vs.nodeA !== 0) {
-      // V_nodeA = vs.value → set row to identity
-      const ia = idx(vs.nodeA);
-      G[ia].fill(0);
-      G[ia][ia] = 1;
-      I[ia] = vs.value;
-      // Zero out column contributions from other rows
-      for (let r = 0; r < n; r++) {
-        if (r !== ia) {
-          I[r] -= G[r][ia] * vs.value;
-          G[r][ia] = 0;
-        }
-      }
-      steps.push(`Voltage source: V${vs.nodeA} = ${vs.value}V (directly constrained)`);
-    } else if (vs.nodeA === 0 && vs.nodeB !== 0) {
-      const ib = idx(vs.nodeB);
-      G[ib].fill(0);
-      G[ib][ib] = 1;
-      I[ib] = -vs.value;
-      for (let r = 0; r < n; r++) {
-        if (r !== ib) {
-          I[r] -= G[r][ib] * (-vs.value);
-          G[r][ib] = 0;
-        }
-      }
-    }
-  });
-
-  const labels = nodeList.map(n => `V${n}`);
-  steps.push(`Solving [G][V] = [I] using Gaussian elimination`);
-
-  const voltages = solveLinearSystem(G.map(r => [...r]), [...I]);
-
-  const nodeVoltages = nodeList.map((node, i) => ({
-    node,
-    voltage: Math.round(voltages[i] * 1e6) / 1e6
-  }));
-
-  steps.push(`Solution: ${nodeVoltages.map(nv => `V${nv.node} = ${nv.voltage.toFixed(4)}V`).join(', ')}`);
-
-  // Calculate branch currents and power
-  let totalDelivered = 0, totalAbsorbed = 0;
-  const branchCurrents = components.map((c, i) => {
-    const vA = c.nodeA === 0 ? 0 : voltages[idx(c.nodeA)];
-    const vB = c.nodeB === 0 ? 0 : voltages[idx(c.nodeB)];
-    let current = 0;
-    if (c.type === 'resistor') {
-      current = (vA - vB) / c.value;
-      const power = current * current * c.value;
-      totalAbsorbed += power;
-    } else if (c.type === 'voltage_source') {
-      // Approximate current through voltage source
-      current = 0; // Would need MNA for exact
-      const power = c.value * current;
-      if (power > 0) totalDelivered += power; else totalAbsorbed += Math.abs(power);
-    } else {
-      current = c.value;
-      const power = (vA - vB) * current;
-      if (power < 0) totalDelivered += Math.abs(power); else totalAbsorbed += power;
-    }
-    return { component: `${c.type}_${i + 1}`, current: Math.round(current * 1e6) / 1e6 };
-  });
-
-  // For simple circuits, delivered ≈ absorbed
-  if (totalDelivered === 0) totalDelivered = totalAbsorbed;
-  const balanced = Math.abs(totalDelivered - totalAbsorbed) / Math.max(totalDelivered, 1e-12) < 0.01;
-
-  steps.push(`Power audit: P_delivered = ${totalDelivered.toFixed(4)}W, P_absorbed = ${totalAbsorbed.toFixed(4)}W`);
-  steps.push(balanced ? `✓ Power balance verified (KCL satisfied)` : `⚠ Power imbalance detected — review circuit topology`);
-
-  // Compute KCL residuals at each node.
-  // Nodes touched by an ideal voltage source carry an unknown source-branch
-  // current, so the sum of the *passive* branch currents there is not zero by
-  // construction — it IS the source current. Reporting that as a KCL failure
-  // is a false alarm, so those nodes are reported as the delivered current.
-  const sourceNodes = new Set<number>();
-  components.forEach(c => {
-    if (c.type === 'voltage_source') { sourceNodes.add(c.nodeA); sourceNodes.add(c.nodeB); }
-  });
-
-  const residuals: DCResult['residuals'] = [];
-  nodeList.forEach((node) => {
-    let sumCurrents = 0;
-    components.forEach(c => {
-      const vA = c.nodeA === 0 ? 0 : voltages[idx(c.nodeA)];
-      const vB = c.nodeB === 0 ? 0 : voltages[idx(c.nodeB)];
-      if (c.type === 'resistor') {
-        const I_branch = (vA - vB) / c.value;
-        if (c.nodeA === node) sumCurrents -= I_branch;
-        if (c.nodeB === node) sumCurrents += I_branch;
-      } else if (c.type === 'current_source') {
-        if (c.nodeA === node) sumCurrents -= c.value;
-        if (c.nodeB === node) sumCurrents += c.value;
-      }
-    });
-    if (sourceNodes.has(node)) {
-      residuals.push({ type: 'KCL', location: `Node ${node} (source branch)`, value: Math.abs(sumCurrents), pass: true });
-      steps.push(`✓ KCL at Node ${node}: satisfied by the voltage-source branch, which supplies ${Math.abs(sumCurrents).toExponential(3)} A`);
-      return;
-    }
-    const pass = Math.abs(sumCurrents) < 1e-6;
-    residuals.push({ type: 'KCL', location: `Node ${node}`, value: Math.abs(sumCurrents), pass });
-    steps.push(`${pass ? '✓' : '⚠'} KCL residual at Node ${node}: ΣI = ${sumCurrents.toExponential(3)} A`);
-  });
-
-
-  // Power balance residual
-  const powerResidual = Math.abs(totalDelivered - totalAbsorbed);
-  residuals.push({ type: 'Power', location: 'Circuit', value: powerResidual, pass: balanced });
-
+  const dc = solveDCOperatingPoint(model);
+  requireIndependentAgreement(model, dc.nodeVoltages);
+  // Public entry enforces physical residuals before any answer is returned.
+  const question = model.questions[0];
+  if (!question) throw new Error('No non-ground circuit output.');
+  const answer = solveQuestion(model, question);
+  const pb = powerBalance(model, dc), kcl = verifyKCL(model, dc);
   return {
-    nodeVoltages,
-    branchCurrents,
-    powerBalance: { delivered: totalDelivered, absorbed: totalAbsorbed, balanced },
-    residuals,
-    steps,
-    matrix: { G, I, labels },
+    nodeVoltages: model.nodes.filter(n => !n.isGround).map(n => ({ node: Number(n.id.slice(1)), voltage: dc.nodeVoltages[n.id] })),
+    branchCurrents: components.map((c, i) => ({ component: `${c.type}_${i + 1}`, current: (c.type === 'current_source' ? -1 : 1) * dc.branchCurrents[`${c.type}_${i + 1}`] })),
+    powerBalance: { delivered: pb.delivered, absorbed: pb.dissipated, balanced: true },
+    residuals: [{ type: 'KCL', location: 'Worst normalized node', value: kcl, pass: true }, { type: 'Power', location: 'Circuit (W)', value: pb.residual, pass: true }],
+    steps: [...answer.steps, 'Verified: independent branch-tableau solution agrees with MNA. Current-source arrows point into Node+; displayed current is Node+ to Node−.'],
+    // MNA derivation is shown in steps; do not fabricate a reduced matrix.
+    matrix: { G: [], I: [], labels: [] },
   };
 }
 
@@ -241,6 +102,7 @@ export interface TransientResult {
 
 export function solveTransient(input: TransientInput): TransientResult {
   const { type, R, L_or_C, Vs, initialValue, tFinal } = input;
+  if (![R, L_or_C, Vs, initialValue, tFinal].every(Number.isFinite) || R <= 0 || L_or_C <= 0 || tFinal <= 0) throw new Error('Transient requires finite values, positive R, storage and time.');
   const steps: string[] = [];
   
   let tau: number;
@@ -280,7 +142,7 @@ export function solveTransient(input: TransientInput): TransientResult {
   const numPoints = 200;
   const points = Array.from({ length: numPoints + 1 }, (_, i) => {
     const t = (i / numPoints) * tFinal;
-    return { t, value: Math.round(fn(t) * 1e6) / 1e6 };
+    return { t, value: fn(t) };
   });
 
   return { tau, equation, finalValue, points, steps };
@@ -350,6 +212,8 @@ export interface ACResult {
 }
 
 export function solveAC(input: ACInput): ACResult {
+  if (input.config !== 'series') throw new Error('Unverified: parallel AC topology is not implemented.');
+  if (![input.Vm, input.phase, input.frequency, input.R, input.L, input.C].every(Number.isFinite) || input.frequency <= 0 || input.R <= 0 || input.L < 0 || input.C < 0) throw new Error('Invalid AC parameters.');
   const { Vm, phase, frequency, R, L, C } = input;
   const w = 2 * Math.PI * frequency;
   const steps: string[] = [];
@@ -420,6 +284,7 @@ export interface QuickResult {
 }
 
 export function solveSeriesParallel(resistors: number[], config: 'series' | 'parallel'): QuickResult {
+  if (!resistors.length || resistors.some(r => !Number.isFinite(r) || r <= 0)) throw new Error('Resistance values must be finite and positive.');
   const steps: string[] = [];
   let Req: number;
 
@@ -437,7 +302,7 @@ export function solveSeriesParallel(resistors: number[], config: 'series' | 'par
 
   return {
     title: `${config === 'series' ? 'Series' : 'Parallel'} Resistance`,
-    results: [{ label: 'R_eq', value: Req.toFixed(4), unit: 'Ω' }],
+    results: [{ label: 'R_eq', value: Req.toPrecision(12), unit: 'Ω' }],
     steps,
   };
 }
@@ -445,6 +310,9 @@ export function solveSeriesParallel(resistors: number[], config: 'series' | 'par
 export function solveOhmsLaw(known: { V?: number; I?: number; R?: number }): QuickResult {
   const steps: string[] = [];
   let V = known.V, I = known.I, R = known.R;
+  const given = [V, I, R].filter(v => v !== undefined);
+  if (given.length < 2 || given.some(v => !Number.isFinite(v)) || (R !== undefined && R <= 0)) throw new Error('Provide at least two finite quantities and positive resistance.');
+  if (V !== undefined && I !== undefined && R !== undefined && Math.abs(V - I * R) > 1e-8 * Math.max(1e-12, Math.abs(V), Math.abs(I * R))) throw new Error('Unverified: supplied V, I and R disagree with V = IR.');
 
   if (V !== undefined && R !== undefined) {
     I = V / R;
@@ -462,22 +330,24 @@ export function solveOhmsLaw(known: { V?: number; I?: number; R?: number }): Qui
     return { title: "Ohm's Law", results: [], steps: ['Error: Provide exactly 2 of V, I, R'] };
   }
 
-  const P = V! * I!;
-  steps.push(`Power: P = VI = ${V!.toFixed(4)} × ${I!.toFixed(6)} = ${P.toFixed(6)}W`);
+  if (V === undefined || I === undefined || R === undefined || ![V, I, R].every(Number.isFinite) || R <= 0) throw new Error('No finite passive Ohm-law solution.');
+  const P = V * I;
+  steps.push(`Power: P = VI = ${V.toFixed(4)} × ${I.toFixed(6)} = ${P.toFixed(6)}W`);
 
   return {
     title: "Ohm's Law",
     results: [
-      { label: 'V', value: V!.toFixed(4), unit: 'V' },
-      { label: 'I', value: I!.toFixed(6), unit: 'A' },
-      { label: 'R', value: R!.toFixed(4), unit: 'Ω' },
-      { label: 'P', value: P.toFixed(6), unit: 'W' },
+      { label: 'V', value: V.toPrecision(12), unit: 'V' },
+      { label: 'I', value: I.toPrecision(12), unit: 'A' },
+      { label: 'R', value: R.toPrecision(12), unit: 'Ω' },
+      { label: 'P', value: P.toPrecision(12), unit: 'W' },
     ],
     steps,
   };
 }
 
 export function solveVoltageDivider(Vs: number, R1: number, R2: number): QuickResult {
+  if (![Vs, R1, R2].every(Number.isFinite) || R1 <= 0 || R2 <= 0) throw new Error('Divider requires finite source and positive resistances.');
   const steps: string[] = [];
   const Vout = Vs * R2 / (R1 + R2);
   const I = Vs / (R1 + R2);
@@ -497,16 +367,17 @@ export function solveVoltageDivider(Vs: number, R1: number, R2: number): QuickRe
   return {
     title: 'Voltage Divider',
     results: [
-      { label: 'V_out', value: Vout.toFixed(4), unit: 'V' },
-      { label: 'I', value: I.toFixed(6), unit: 'A' },
-      { label: 'V_R1', value: (I * R1).toFixed(4), unit: 'V' },
-      { label: 'P_total', value: (P1 + P2).toFixed(6), unit: 'W' },
+      { label: 'V_out', value: Vout.toPrecision(12), unit: 'V' },
+      { label: 'I', value: I.toPrecision(12), unit: 'A' },
+      { label: 'V_R1', value: (I * R1).toPrecision(12), unit: 'V' },
+      { label: 'P_total', value: (P1 + P2).toPrecision(12), unit: 'W' },
     ],
     steps,
   };
 }
 
 export function solveCurrentDivider(Is: number, R1: number, R2: number): QuickResult {
+  if (![Is, R1, R2].every(Number.isFinite) || R1 <= 0 || R2 <= 0) throw new Error('Divider requires finite source and positive resistances.');
   const steps: string[] = [];
   const I1 = Is * R2 / (R1 + R2);
   const I2 = Is * R1 / (R1 + R2);
@@ -523,16 +394,17 @@ export function solveCurrentDivider(Is: number, R1: number, R2: number): QuickRe
   return {
     title: 'Current Divider',
     results: [
-      { label: 'I₁', value: I1.toFixed(6), unit: 'A' },
-      { label: 'I₂', value: I2.toFixed(6), unit: 'A' },
-      { label: 'V', value: V.toFixed(4), unit: 'V' },
-      { label: 'R_eq', value: Req.toFixed(4), unit: 'Ω' },
+      { label: 'I₁', value: I1.toPrecision(12), unit: 'A' },
+      { label: 'I₂', value: I2.toPrecision(12), unit: 'A' },
+      { label: 'V', value: V.toPrecision(12), unit: 'V' },
+      { label: 'R_eq', value: Req.toPrecision(12), unit: 'Ω' },
     ],
     steps,
   };
 }
 
 export function solveThevenin(Voc: number, Isc: number): QuickResult {
+  if (![Voc, Isc].every(Number.isFinite) || Isc === 0 || Voc / Isc <= 0) throw new Error('Unverified: equivalent needs nonzero short-circuit current and positive resistance.');
   const steps: string[] = [];
   const Rth = Voc / Isc;
   const In = Isc; // Norton current = short circuit current
@@ -554,10 +426,10 @@ export function solveThevenin(Voc: number, Isc: number): QuickResult {
   return {
     title: 'Thévenin / Norton Equivalent',
     results: [
-      { label: 'V_th', value: Voc.toFixed(4), unit: 'V' },
-      { label: 'R_th', value: Rth.toFixed(4), unit: 'Ω' },
-      { label: 'I_N', value: In.toFixed(6), unit: 'A' },
-      { label: 'P_max', value: Pmax.toFixed(6), unit: 'W' },
+      { label: 'V_th', value: Voc.toPrecision(12), unit: 'V' },
+      { label: 'R_th', value: Rth.toPrecision(12), unit: 'Ω' },
+      { label: 'I_N', value: In.toPrecision(12), unit: 'A' },
+      { label: 'P_max', value: Pmax.toPrecision(12), unit: 'W' },
     ],
     steps,
   };
@@ -567,9 +439,9 @@ export function solvePower(known: { V?: number; I?: number; R?: number }): Quick
   const ohm = solveOhmsLaw(known);
   if (ohm.results.length === 0) return ohm;
 
-  const V = parseFloat(ohm.results.find(r => r.label === 'V')!.value);
-  const I = parseFloat(ohm.results.find(r => r.label === 'I')!.value);
-  const R = parseFloat(ohm.results.find(r => r.label === 'R')!.value);
+  const V = known.V ?? (known.I ?? NaN) * (known.R ?? NaN);
+  const I = known.I ?? V / (known.R ?? NaN);
+  const R = known.R ?? V / I;
 
   const steps = [...ohm.steps];
   steps.push(``);
@@ -582,9 +454,9 @@ export function solvePower(known: { V?: number; I?: number; R?: number }): Quick
     title: 'Power Analysis',
     results: [
       ...ohm.results,
-      { label: 'P (VI)', value: (V * I).toFixed(6), unit: 'W' },
-      { label: 'P (I²R)', value: (I * I * R).toFixed(6), unit: 'W' },
-      { label: 'P (V²/R)', value: (V * V / R).toFixed(6), unit: 'W' },
+      { label: 'P (VI)', value: (V * I).toPrecision(12), unit: 'W' },
+      { label: 'P (I²R)', value: (I * I * R).toPrecision(12), unit: 'W' },
+      { label: 'P (V²/R)', value: (V * V / R).toPrecision(12), unit: 'W' },
     ],
     steps,
   };
