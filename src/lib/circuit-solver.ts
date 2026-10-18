@@ -592,6 +592,8 @@ export function solvePower(known: { V?: number; I?: number; R?: number }): Quick
 
 // ============ SECOND-ORDER RLC TRANSIENT ANALYSIS ============
 
+import { auditRLC } from "./rlc-verification";
+
 export interface RLCInput {
   topology: 'series' | 'parallel';
   R: number;
@@ -622,6 +624,13 @@ export interface RLCResult {
 
 export function solveRLC(input: RLCInput): RLCResult {
   const { topology, R, L, C, Vs, excitation, vC0, iL0, tFinal } = input;
+  if (![R, L, C, tFinal].every(x => Number.isFinite(x) && x > 0) ||
+      ![Vs, vC0, iL0].every(Number.isFinite)) {
+    throw new Error('Unsupported or unverified: R, L, C and t_final must be positive finite values; source and initial conditions must be finite.');
+  }
+  if (topology === 'parallel' && excitation === 'step') {
+    throw new Error('Unsupported or unverified: parallel voltage-step source connection is ambiguous. A directly connected ideal voltage source does not have the assumed finite DC inductor current. Parallel step excitation is coming soon.');
+  }
   const steps: string[] = [];
 
   // --- Step 1: Compute α and ω₀ ---
@@ -651,7 +660,7 @@ export function solveRLC(input: RLCInput): RLCResult {
   if (disc > 1e-6 * omega0 * omega0) {
     dampingType = 'overdamped';
     const sqrtDisc = Math.sqrt(disc);
-    s1re = -alpha + sqrtDisc; s1im = 0;
+    s1re = -(omega0 * omega0) / (alpha + sqrtDisc); s1im = 0;
     s2re = -alpha - sqrtDisc; s2im = 0;
     steps.push(`α² > ω₀² → Overdamped (α² - ω₀² = ${disc.toFixed(4)})`);
     steps.push(`s₁ = -α + √(α²-ω₀²) = ${s1re.toFixed(4)}`);
@@ -673,13 +682,8 @@ export function solveRLC(input: RLCInput): RLCResult {
   }
 
   // --- Step 3: Determine initial conditions & forced response ---
-  const vCinf = excitation === 'step' ? Vs : 0;
-  const iLinf = excitation === 'step' ? (topology === 'series' ? Vs / R : 0) : 0;
-  // For series: at steady state cap is open → i=0, vC=Vs
-  // For parallel: at steady state ind is short → vC=0 (if source removed) or Vs
-  // Simplified: series step → vC(∞)=Vs, iL(∞)=0; parallel step → vC(∞)=Vs, iL(∞)=Vs/R
   const vCss = excitation === 'step' ? Vs : 0;
-  const iLss = excitation === 'step' ? (topology === 'parallel' ? Vs / R : 0) : 0;
+  const iLss = 0;
 
   steps.push(``);
   steps.push(`Excitation: ${excitation === 'step' ? `Step input V_s = ${Vs}V` : 'Natural response (no source)'}`);
@@ -716,22 +720,28 @@ export function solveRLC(input: RLCInput): RLCResult {
       const A2 = (dx0 - s1re * x0p) / (s2re - s1re);
       const A1 = x0p - A2;
       const fn = (t: number) => xss + A1 * Math.exp(s1re * t) + A2 * Math.exp(s2re * t);
+      const derivative = (t: number) => A1 * s1re * Math.exp(s1re * t) + A2 * s2re * Math.exp(s2re * t);
       const eq = `${xss.toFixed(4)} + ${A1.toFixed(4)}e^(${s1re.toFixed(4)}t) + ${A2.toFixed(4)}e^(${s2re.toFixed(4)}t)`;
-      return { fn, eq, A1, A2 };
+      return { fn, derivative, eq, A1, A2 };
     } else if (dampingType === 'underdamped') {
       // x(t) = xss + e^(-αt)[B1·cos(ωd·t) + B2·sin(ωd·t)]
       const B1 = x0p;
-      const B2 = (dx0 + alpha * x0p) / omegaD!;
-      const fn = (t: number) => xss + Math.exp(-alpha * t) * (B1 * Math.cos(omegaD! * t) + B2 * Math.sin(omegaD! * t));
-      const eq = `${xss.toFixed(4)} + e^(${(-alpha).toFixed(4)}t)[${B1.toFixed(4)}cos(${omegaD!.toFixed(4)}t) + ${B2.toFixed(4)}sin(${omegaD!.toFixed(4)}t)]`;
-      return { fn, eq, A1: B1, A2: B2 };
+      if (omegaD === undefined) throw new Error('Unverified: missing damped frequency.');
+      const wd = omegaD;
+      const B2 = (dx0 + alpha * x0p) / wd;
+      const fn = (t: number) => xss + Math.exp(-alpha * t) * (B1 * Math.cos(wd * t) + B2 * Math.sin(wd * t));
+      const derivative = (t: number) => Math.exp(-alpha * t) *
+        ((wd * B2 - alpha * B1) * Math.cos(wd * t) + (-wd * B1 - alpha * B2) * Math.sin(wd * t));
+      const eq = `${xss.toFixed(4)} + e^(${(-alpha).toFixed(4)}t)[${B1.toFixed(4)}cos(${wd.toFixed(4)}t) + ${B2.toFixed(4)}sin(${wd.toFixed(4)}t)]`;
+      return { fn, derivative, eq, A1: B1, A2: B2 };
     } else {
       // Critically damped: x(t) = xss + (D1 + D2·t)e^(-αt)
       const D1 = x0p;
       const D2 = dx0 + alpha * x0p;
       const fn = (t: number) => xss + (D1 + D2 * t) * Math.exp(-alpha * t);
+      const derivative = (t: number) => (D2 - alpha * (D1 + D2 * t)) * Math.exp(-alpha * t);
       const eq = `${xss.toFixed(4)} + (${D1.toFixed(4)} + ${D2.toFixed(4)}t)e^(${(-alpha).toFixed(4)}t)`;
-      return { fn, eq, A1: D1, A2: D2 };
+      return { fn, derivative, eq, A1: D1, A2: D2 };
     }
   };
 
@@ -767,16 +777,44 @@ export function solveRLC(input: RLCInput): RLCResult {
   const pointsIL: { t: number; value: number }[] = [];
   for (let i = 0; i <= numPts; i++) {
     const t = (i / numPts) * tFinal;
-    pointsVC.push({ t, value: Math.round(fnVC(t) * 1e6) / 1e6 });
-    pointsIL.push({ t, value: Math.round(fnIL(t) * 1e6) / 1e6 });
+    pointsVC.push({ t, value: fnVC(t) });
+    pointsIL.push({ t, value: fnIL(t) });
   }
 
   // Verification
   steps.push(``);
-  steps.push(`✓ v_C(0⁺) = ${fnVC(0).toFixed(4)}V (expected ${vC0}V)`);
-  steps.push(`✓ i_L(0⁺) = ${fnIL(0).toFixed(4)}A (expected ${iL0}A)`);
-  steps.push(`✓ v_C(∞) ≈ ${fnVC(tFinal).toFixed(4)}V (expected ${vCss}V)`);
-  steps.push(`✓ i_L(∞) ≈ ${fnIL(tFinal).toFixed(4)}A (expected ${iLss}A)`);
+  const voltageScale = Math.max(Math.abs(Vs), Math.abs(vC0), Math.abs(iL0) * Math.sqrt(L / C), 1e-12);
+  const currentScale = Math.max(Math.abs(iL0), voltageScale * Math.sqrt(C / L), 1e-12);
+  const physical = [
+    { name: 'Capacitor continuity', residual: fnVC(0) - vC0, scale: voltageScale, unit: 'V' },
+    { name: 'Inductor continuity', residual: fnIL(0) - iL0, scale: currentScale, unit: 'A' },
+    { name: 'DC KVL', residual: topology === 'series' ? (excitation === 'step' ? Vs : 0) - R * iLss - vCss : vCss, scale: voltageScale, unit: 'V' },
+    { name: 'DC KCL', residual: topology === 'series' ? iLss : -vCss / R - iLss, scale: currentScale, unit: 'A' },
+  ];
+  for (let i = 0; i <= numPts; i++) {
+    const t = i * tFinal / numPts;
+    const v = fnVC(t), current = fnIL(t);
+    physical.push(
+      { name: `KCL at ${t.toPrecision(4)} s`, residual: topology === 'series' ? C * solVC.derivative(t) - current : C * solVC.derivative(t) + v / R + current, scale: currentScale, unit: 'A' },
+      { name: `KVL at ${t.toPrecision(4)} s`, residual: topology === 'series' ? L * solIL.derivative(t) + R * current + v - (excitation === 'step' ? Vs : 0) : L * solIL.derivative(t) - v, scale: voltageScale, unit: 'V' },
+    );
+  }
+  const physicalAudit = auditRLC(physical);
+  if (!physicalAudit.ok) {
+    const failure = physicalAudit.checks.find(check => !check.ok);
+    throw new Error(`Unsupported or unverified: ${failure?.name} residual ${failure?.residual.toExponential(3)} ${failure?.unit}. Answer withheld.`);
+  }
+  const endpoint = auditRLC([
+    { name: 'v_C(t_final) − v_C(∞)', residual: fnVC(tFinal) - vCss, scale: voltageScale, unit: 'V' },
+    { name: 'i_L(t_final) − i_L(∞)', residual: fnIL(tFinal) - iLss, scale: currentScale, unit: 'A' },
+  ]);
+  steps.push(`Physical initial-condition/KCL/KVL audit passed; maximum normalized residual = ${Math.max(...physicalAudit.checks.map(check => Math.abs(check.residual) / check.scale)).toExponential(3)}.`);
+  steps.push(`Analytical DC limit: v_C(∞) = ${vCss} V, i_L(∞) = ${iLss} A.`);
+  steps.push(`Finite plot endpoint t_final = ${tFinal} s is not infinity.`);
+  for (const check of endpoint.checks) {
+    steps.push(`${check.ok ? 'PASS' : 'NOT SETTLED'}: ${check.name} = ${check.residual.toExponential(4)} ${check.unit}.`);
+  }
+  steps.push(endpoint.ok ? 'Verified within tested RLC scope.' : 'Unverified steady-state endpoint: the plotted transient has not settled; do not treat its last sample as the final value.');
 
   return {
     alpha,
@@ -790,5 +828,6 @@ export function solveRLC(input: RLCInput): RLCResult {
     pointsVC,
     pointsIL,
     steps,
+    verification: { ok: physicalAudit.ok && endpoint.ok, physicalOk: physicalAudit.ok, settled: endpoint.ok, endpoint: endpoint.checks },
   };
 }
