@@ -194,6 +194,11 @@ const RLCTransientTab = () => {
 
       {result && (
         <div className="space-y-4 animate-slide-up">
+          <p role="status" className={result.verification.ok ? 'text-success text-sm' : 'text-warning text-sm'}>
+            {result.verification.ok
+              ? 'Verified — tested RLC scope; physical and steady-state residuals pass.'
+              : 'Unverified steady-state endpoint — physical equations pass, but t_final has not settled. The last plotted sample is not the final value.'}
+          </p>
           <div className="p-4 rounded-lg bg-card border border-border">
             {/* Key results */}
             <div className="flex flex-wrap gap-3 mb-4">

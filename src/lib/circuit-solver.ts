@@ -620,6 +620,12 @@ export interface RLCResult {
   pointsVC: { t: number; value: number }[];
   pointsIL: { t: number; value: number }[];
   steps: string[];
+  verification: {
+    ok: boolean;
+    physicalOk: boolean;
+    settled: boolean;
+    endpoint: ReturnType<typeof auditRLC>['checks'];
+  };
 }
 
 export function solveRLC(input: RLCInput): RLCResult {
