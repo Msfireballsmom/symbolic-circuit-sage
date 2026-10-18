@@ -167,9 +167,9 @@ const DCAnalysisTab = () => {
             />
           </div>
 
-          <MatrixDisplay G={result.matrix.G} I={result.matrix.I} labels={result.matrix.labels} />
+          {result.matrix.G.length > 0 && <MatrixDisplay G={result.matrix.G} I={result.matrix.I} labels={result.matrix.labels} />}
           <div className="p-4 rounded-lg bg-card border border-border">
-            <StepDisplay steps={result.steps} />
+            <StepDisplay steps={result.steps} verification="verified" />
           </div>
         </div>
       )}
