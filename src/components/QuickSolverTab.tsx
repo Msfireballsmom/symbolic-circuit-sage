@@ -9,12 +9,14 @@ import {
 } from "@/lib/circuit-solver";
 import StepDisplay from "./StepDisplay";
 import { Calculator, Plus, Trash2, Play } from "lucide-react";
+import { parseQuantity } from '@/lib/quantity';
 
 type SolverType = 'ohms_law' | 'series_parallel' | 'voltage_divider' | 'current_divider' | 'thevenin' | 'power' | 'superposition';
 
 const QuickSolverTab = () => {
   const [solverType, setSolverType] = useState<SolverType>('ohms_law');
   const [result, setResult] = useState<QuickResult | null>(null);
+  const [error, setError] = useState('');
 
   // Ohm's law state
   const [ohmV, setOhmV] = useState('');
@@ -50,79 +52,39 @@ const QuickSolverTab = () => {
   ]);
 
   const solve = () => {
+    setResult(null); setError('');
+    try {
+    if (solverType === 'superposition') throw new Error('Unsupported: this form only sums user-entered contributions; no circuit topology is provided. Use nodal analysis for actual source contributions.');
     switch (solverType) {
       case 'ohms_law':
         setResult(solveOhmsLaw({
-          V: ohmV ? parseFloat(ohmV) : undefined,
-          I: ohmI ? parseFloat(ohmI) : undefined,
-          R: ohmR ? parseFloat(ohmR) : undefined,
+          V: ohmV ? parseQuantity(ohmV, 'V') : undefined,
+          I: ohmI ? parseQuantity(ohmI, 'A') : undefined,
+          R: ohmR ? parseQuantity(ohmR, 'Ω') : undefined,
         }));
         break;
       case 'series_parallel':
-        setResult(solveSeriesParallel(resistors.map(r => parseFloat(r) || 0), spConfig));
+        setResult(solveSeriesParallel(resistors.map(r => parseQuantity(r, 'Ω')), spConfig));
         break;
       case 'voltage_divider':
-        setResult(solveVoltageDivider(parseFloat(vdVs), parseFloat(vdR1), parseFloat(vdR2)));
+        setResult(solveVoltageDivider(parseQuantity(vdVs, 'V'), parseQuantity(vdR1, 'Ω'), parseQuantity(vdR2, 'Ω')));
         break;
       case 'current_divider':
-        setResult(solveCurrentDivider(parseFloat(cdIs), parseFloat(cdR1), parseFloat(cdR2)));
+        setResult(solveCurrentDivider(parseQuantity(cdIs, 'A'), parseQuantity(cdR1, 'Ω'), parseQuantity(cdR2, 'Ω')));
         break;
       case 'thevenin':
-        setResult(solveThevenin(parseFloat(thVoc), parseFloat(thIsc)));
+        setResult(solveThevenin(parseQuantity(thVoc, 'V'), parseQuantity(thIsc, 'A')));
         break;
       case 'power':
         setResult(solvePower({
-          V: ohmV ? parseFloat(ohmV) : undefined,
-          I: ohmI ? parseFloat(ohmI) : undefined,
-          R: ohmR ? parseFloat(ohmR) : undefined,
+          V: ohmV ? parseQuantity(ohmV, 'V') : undefined,
+          I: ohmI ? parseQuantity(ohmI, 'A') : undefined,
+          R: ohmR ? parseQuantity(ohmR, 'Ω') : undefined,
         }));
         break;
-      case 'superposition': {
-        const steps: string[] = [];
-        steps.push(`═══════════════════════════════════════`);
-        steps.push(`SUPERPOSITION THEOREM`);
-        steps.push(`═══════════════════════════════════════`);
-        steps.push(``);
-        steps.push(`Principle: In a linear circuit with multiple independent sources,`);
-        steps.push(`the response at any element equals the algebraic sum of responses`);
-        steps.push(`caused by each source acting alone (others deactivated).`);
-        steps.push(``);
-        steps.push(`Deactivation rules:`);
-        steps.push(`  • Voltage source → replace with short circuit (wire)`);
-        steps.push(`  • Current source → replace with open circuit (break)`);
-        steps.push(``);
 
-        let total = 0;
-        spSources.forEach((src, i) => {
-          const contribution = parseFloat(spContributions[i]?.contribution || '0');
-          steps.push(`STEP ${i + 1}: ${src.name} = ${src.value}${src.unit} acting alone`);
-          steps.push(`  All other sources deactivated`);
-          steps.push(`  Contribution to response: ${contribution}`);
-          steps.push(``);
-          total += contribution;
-        });
-
-        steps.push(`FINAL STEP: Superposition`);
-        steps.push(`  Total response = ${spContributions.map((c, i) => `${spSources[i].name}_contribution`).join(' + ')}`);
-        steps.push(`  Total = ${spContributions.map(c => c.contribution).join(' + ')} = ${total}`);
-        steps.push(``);
-        steps.push(`✓ Superposition principle applied successfully`);
-
-        setResult({
-          title: 'Superposition Theorem',
-          results: [
-            { label: 'Total Response', value: total.toString(), unit: '' },
-            ...spContributions.map((c, i) => ({
-              label: `From ${spSources[i].name}`,
-              value: c.contribution,
-              unit: '',
-            })),
-          ],
-          steps,
-        });
-        break;
-      }
     }
+    } catch (e) { setError(e instanceof Error ? e.message : 'Answer withheld.'); }
   };
 
   const renderInputs = () => {
@@ -135,15 +97,15 @@ const QuickSolverTab = () => {
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground">Voltage (V)</Label>
-                <Input type="number" value={ohmV} onChange={e => setOhmV(e.target.value)} placeholder="?" className="h-8 text-xs font-mono" />
+                <Input type="text" inputMode="decimal" value={ohmV} onChange={e => setOhmV(e.target.value)} placeholder="?" className="h-8 text-xs font-mono" />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Current (A)</Label>
-                <Input type="number" value={ohmI} onChange={e => setOhmI(e.target.value)} placeholder="?" className="h-8 text-xs font-mono" />
+                <Input type="text" inputMode="decimal" value={ohmI} onChange={e => setOhmI(e.target.value)} placeholder="?" className="h-8 text-xs font-mono" />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Resistance (Ω)</Label>
-                <Input type="number" value={ohmR} onChange={e => setOhmR(e.target.value)} placeholder="?" className="h-8 text-xs font-mono" />
+                <Input type="text" inputMode="decimal" value={ohmR} onChange={e => setOhmR(e.target.value)} placeholder="?" className="h-8 text-xs font-mono" />
               </div>
             </div>
           </div>
@@ -168,7 +130,7 @@ const QuickSolverTab = () => {
                 <div key={i} className="flex items-end gap-1">
                   <div>
                     <Label className="text-xs text-muted-foreground">R{i + 1} (Ω)</Label>
-                    <Input type="number" value={r} onChange={e => { const n = [...resistors]; n[i] = e.target.value; setResistors(n); }} className="h-8 text-xs font-mono w-24" />
+                    <Input type="text" inputMode="decimal" value={r} onChange={e => { const n = [...resistors]; n[i] = e.target.value; setResistors(n); }} className="h-8 text-xs font-mono w-24" />
                   </div>
                   {resistors.length > 2 && (
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive/70" onClick={() => setResistors(resistors.filter((_, j) => j !== i))}>
@@ -185,15 +147,15 @@ const QuickSolverTab = () => {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <Label className="text-xs text-muted-foreground">V_source (V)</Label>
-              <Input type="number" value={vdVs} onChange={e => setVdVs(e.target.value)} className="h-8 text-xs font-mono" />
+              <Input type="text" inputMode="decimal" value={vdVs} onChange={e => setVdVs(e.target.value)} className="h-8 text-xs font-mono" />
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">R₁ (Ω) — top</Label>
-              <Input type="number" value={vdR1} onChange={e => setVdR1(e.target.value)} className="h-8 text-xs font-mono" />
+              <Input type="text" inputMode="decimal" value={vdR1} onChange={e => setVdR1(e.target.value)} className="h-8 text-xs font-mono" />
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">R₂ (Ω) — bottom</Label>
-              <Input type="number" value={vdR2} onChange={e => setVdR2(e.target.value)} className="h-8 text-xs font-mono" />
+              <Input type="text" inputMode="decimal" value={vdR2} onChange={e => setVdR2(e.target.value)} className="h-8 text-xs font-mono" />
             </div>
           </div>
         );
@@ -202,15 +164,15 @@ const QuickSolverTab = () => {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <Label className="text-xs text-muted-foreground">I_source (A)</Label>
-              <Input type="number" value={cdIs} onChange={e => setCdIs(e.target.value)} className="h-8 text-xs font-mono" />
+              <Input type="text" inputMode="decimal" value={cdIs} onChange={e => setCdIs(e.target.value)} className="h-8 text-xs font-mono" />
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">R₁ (Ω)</Label>
-              <Input type="number" value={cdR1} onChange={e => setCdR1(e.target.value)} className="h-8 text-xs font-mono" />
+              <Input type="text" inputMode="decimal" value={cdR1} onChange={e => setCdR1(e.target.value)} className="h-8 text-xs font-mono" />
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">R₂ (Ω)</Label>
-              <Input type="number" value={cdR2} onChange={e => setCdR2(e.target.value)} className="h-8 text-xs font-mono" />
+              <Input type="text" inputMode="decimal" value={cdR2} onChange={e => setCdR2(e.target.value)} className="h-8 text-xs font-mono" />
             </div>
           </div>
         );
@@ -219,11 +181,11 @@ const QuickSolverTab = () => {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-muted-foreground">V_oc (Open Circuit V)</Label>
-              <Input type="number" value={thVoc} onChange={e => setThVoc(e.target.value)} className="h-8 text-xs font-mono" />
+              <Input type="text" inputMode="decimal" value={thVoc} onChange={e => setThVoc(e.target.value)} className="h-8 text-xs font-mono" />
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">I_sc (Short Circuit A)</Label>
-              <Input type="number" value={thIsc} onChange={e => setThIsc(e.target.value)} className="h-8 text-xs font-mono" />
+              <Input type="text" inputMode="decimal" value={thIsc} onChange={e => setThIsc(e.target.value)} className="h-8 text-xs font-mono" />
             </div>
           </div>
         );
@@ -264,7 +226,7 @@ const QuickSolverTab = () => {
                 </div>
                 <div className="w-28">
                   <Label className="text-xs text-muted-foreground">Contribution</Label>
-                  <Input type="number" value={spContributions[i]?.contribution || '0'} onChange={e => {
+                  <Input type="text" inputMode="decimal" value={spContributions[i]?.contribution || '0'} onChange={e => {
                     const updated = [...spContributions]; updated[i] = { source: src.name, contribution: e.target.value }; setSpContributions(updated);
                   }} className="h-8 text-xs font-mono" />
                 </div>
@@ -325,10 +287,12 @@ const QuickSolverTab = () => {
         </Button>
       </div>
 
+      {error && <p role="alert" className="text-destructive text-sm">{error}</p>}
       {result && (
         <div className="space-y-4 animate-slide-up">
           <div className="p-4 rounded-lg bg-card border border-border">
             <h3 className="text-sm font-semibold text-foreground mb-3">{result.title}</h3>
+            <p role="status" className="text-warning text-xs mb-3">Unverified calculator output — not independent circuit certification. Thévenin inputs are supplied measurements, not inferred terminals.</p>
             <div className="flex flex-wrap gap-3 mb-4">
               {result.results.map((r, i) => (
                 <div key={i} className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">

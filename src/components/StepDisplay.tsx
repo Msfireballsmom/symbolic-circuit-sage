@@ -8,16 +8,21 @@ interface StepDisplayProps {
   defaultExpanded?: boolean;
   title?: string;
   results?: { label: string; value: string }[];
+  verification?: 'verified' | 'unverified';
 }
 
-const StepDisplay = ({ steps, defaultExpanded = true, title, results }: StepDisplayProps) => {
+const StepDisplay = ({ steps, defaultExpanded = true, title, results, verification = 'unverified' }: StepDisplayProps) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(steps.join('\n'));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const [copyError, setCopyError] = useState('');
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(`${verification === 'verified' ? 'Verified' : 'Unverified'} — Circuit Sage\n${steps.join('\n')}`);
+      setCopyError('');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { setCopyError('Copy failed: clipboard access was denied.'); }
   };
 
   // Group steps into sections by detecting headers (lines with ═ or STEP or all-caps)
@@ -97,7 +102,7 @@ const StepDisplay = ({ steps, defaultExpanded = true, title, results }: StepDisp
             variant="ghost"
             size="sm"
             className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
-            onClick={() => exportSolutionAsPDF(title || 'Circuit Solution', steps, results)}
+            onClick={() => exportSolutionAsPDF(title || 'Circuit Solution', steps, results, verification)}
           >
             <FileDown className="w-3 h-3" />
             PDF
@@ -121,6 +126,7 @@ const StepDisplay = ({ steps, defaultExpanded = true, title, results }: StepDisp
           </div>
         </div>
       )}
+      {copyError && <p role="alert" className="text-xs text-destructive">{copyError}</p>}
     </div>
   );
 };

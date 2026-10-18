@@ -11,12 +11,13 @@ const ACPhasorTab = () => {
     Vm: 170, phase: 0, frequency: 60, R: 100, L: 0.5, C: 0.00001, config: 'series',
   });
   const [result, setResult] = useState<ACResult | null>(null);
+  const [error, setError] = useState('');
 
   const update = (field: keyof ACInput, val: string) => {
-    setInput({ ...input, [field]: parseFloat(val) || 0 });
+    setInput({ ...input, [field]: val.trim() ? Number(val) : NaN });
   };
 
-  const solve = () => setResult(solveAC(input));
+  const solve = () => { try { setError(''); setResult(solveAC(input)); } catch (e) { setResult(null); setError(e instanceof Error ? e.message : 'Invalid AC input.'); } };
 
   const PhasorDiagram = () => {
     if (!result) return null;
@@ -66,6 +67,7 @@ const ACPhasorTab = () => {
         </h3>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {error && <p role="alert" className="text-destructive">{error}</p>}
           <div>
             <Label className="text-xs text-muted-foreground">V_peak (V)</Label>
             <Input type="number" value={input.Vm} onChange={e => update('Vm', e.target.value)} className="h-8 text-xs font-mono" />

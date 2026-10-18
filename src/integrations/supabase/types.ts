@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_request_limits: {
+        Row: {
+          operation: string
+          requests: number
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          operation: string
+          requests?: number
+          user_id: string
+          window_start: string
+        }
+        Update: {
+          operation?: string
+          requests?: number
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       benchmark_runs: {
         Row: {
           accuracy: number
@@ -226,6 +247,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consume_ai_request: {
+        Args: { _operation: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

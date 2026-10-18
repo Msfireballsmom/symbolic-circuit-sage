@@ -38,38 +38,11 @@ export interface ParsedProblem {
   warnings: string[];
 }
 
-// Unit multiplier lookup
-function parseUnit(raw: string): number {
-  const s = raw.trim().toLowerCase();
-  if (s.startsWith('g')) return 1e9;
-  if (s.startsWith('meg') || s === 'mω' || s === 'mohm') return 1e6;
-  if (s.startsWith('m') && !s.startsWith('meg')) return 1e6; // M prefix
-  if (s === 'k' || s.startsWith('k')) return 1e3;
-  if (s === 'm' || s.startsWith('milli') || s === 'ma') return 1e-3;
-  if (s === 'u' || s === 'μ' || s.startsWith('micro')) return 1e-6;
-  if (s === 'n' || s.startsWith('nano')) return 1e-9;
-  if (s === 'p' || s.startsWith('pico')) return 1e-12;
-  return 1;
-}
-
+// SI prefixes are case-sensitive: M is mega, m is milli.
 function parseValueWithUnit(valStr: string, unitStr: string): number {
-  const num = parseFloat(valStr);
-  if (isNaN(num)) return 0;
-
-  // Extract multiplier prefix from unit string
-  const unitLower = unitStr.trim().toLowerCase();
-  
-  // Common patterns: "kΩ", "kohm", "kohms", "mA", "mV", "μF", "nF", "mH"
-  let multiplier = 1;
-  if (/^k/i.test(unitLower)) multiplier = 1e3;
-  else if (/^meg/i.test(unitLower)) multiplier = 1e6;
-  else if (/^[mM](?:Ω|ohm|ω)/i.test(unitLower)) multiplier = 1e6; // MΩ
-  else if (/^m(?!eg)/i.test(unitLower)) multiplier = 1e-3; // mA, mV, mH
-  else if (/^[uμµ]/i.test(unitLower)) multiplier = 1e-6;
-  else if (/^n/i.test(unitLower)) multiplier = 1e-9;
-  else if (/^p/i.test(unitLower)) multiplier = 1e-12;
-
-  return num * multiplier;
+  const n = Number(valStr), prefix = unitStr.trim()[0] ?? '';
+  const factors: Record<string, number> = { G: 1e9, M: 1e6, k: 1e3, K: 1e3, m: 1e-3, u: 1e-6, μ: 1e-6, µ: 1e-6, n: 1e-9, p: 1e-12 };
+  return n * (factors[prefix] ?? 1);
 }
 
 // Extract all resistors, sources, caps, inductors from text
@@ -79,10 +52,10 @@ function extractComponents(text: string): ParsedComponent[] {
 
   // Pattern: R1 = 4kΩ, R₁ = 4 kΩ, R1=4kohm, R = 100Ω, etc.
   const rPatterns = [
-    /r[₁₂₃₄₅₆₇₈₉]?\s*[=:]\s*([\d.]+)\s*([kKmMgGμuUnNpP]?)\s*(?:Ω|ohm|ω)/gi,
-    /r(\d+)\s*[=:]\s*([\d.]+)\s*([kKmMgGμuUnNpP]?)\s*(?:Ω|ohm|ω)?/gi,
-    /([\d.]+)\s*([kKmMgGμuUnNpP]?)\s*(?:Ω|ohm|ω)\s*resistor/gi,
-    /resistor[^=]*?[=:of]*\s*([\d.]+)\s*([kKmMgGμuUnNpP]?)\s*(?:Ω|ohm|ω)?/gi,
+    /r[₁₂₃₄₅₆₇₈₉]?\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMgGμuUnNpP]?)\s*(?:Ω|ohm|ω)/gi,
+    /r(\d+)\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMgGμuUnNpP]?)\s*(?:Ω|ohm|ω)?/gi,
+    /([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMgGμuUnNpP]?)\s*(?:Ω|ohm|ω)\s*resistor/gi,
+    /resistor[^=]*?[=:of]*\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMgGμuUnNpP]?)\s*(?:Ω|ohm|ω)?/gi,
   ];
 
   // Subscript digit mapping
@@ -95,7 +68,7 @@ function extractComponents(text: string): ParsedComponent[] {
   });
 
   // Extract R values: "R1 = 4kΩ" style
-  const rAssign = /[Rr](\d*)\s*[=:]\s*([\d.]+)\s*([kKmMμuUnNpP]?)\s*(?:Ω|ohm|ohms|ω)?/g;
+  const rAssign = /[Rr](\d*)\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMμuUnNpP]?)\s*(?:Ω|ohm|ohms|ω)?/g;
   let match: RegExpExecArray | null;
   const foundLabels = new Set<string>();
 
@@ -105,58 +78,67 @@ function extractComponents(text: string): ParsedComponent[] {
     if (foundLabels.has(label)) continue;
     foundLabels.add(label);
     const value = parseValueWithUnit(match[2], match[3] || '');
-    if (value > 0) components.push({ type: 'resistor', label, value });
+    if (value >= 0) components.push({ type: 'resistor', label, value });
   }
 
   // Extract standalone "4.7kΩ" or "100 ohm" values if no R= found
   if (components.filter(c => c.type === 'resistor').length === 0) {
-    const standalone = /([\d.]+)\s*([kKmMμuUnNpP]?)\s*(?:Ω|ohm|ohms|ω)/g;
+    const standalone = /([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMμuUnNpP]?)\s*(?:Ω|ohm|ohms|ω)/g;
     while ((match = standalone.exec(normText)) !== null) {
       const rIdx = components.filter(c => c.type === 'resistor').length + 1;
       const value = parseValueWithUnit(match[1], match[2] || '');
-      if (value > 0) components.push({ type: 'resistor', label: `R${rIdx}`, value });
+      if (value >= 0) components.push({ type: 'resistor', label: `R${rIdx}`, value });
     }
   }
 
   // Voltage sources: "Vs = 12V", "V1 = 24V", "12V source", "voltage source of 12V"
+  const explicitSources = /\b([VI](?:s|\d+)?)\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kMmμuµn]?)\s*([VA])\b/gi;
+  while ((match = explicitSources.exec(normText)) !== null) {
+    const label = match[1], isVoltage = label[0].toUpperCase() === 'V';
+    if (match[4].toUpperCase() !== (isVoltage ? 'V' : 'A') || foundLabels.has(label)) continue;
+    foundLabels.add(label);
+    components.push({ type: isVoltage ? 'voltage_source' : 'current_source', label, value: parseValueWithUnit(match[2], match[3]) });
+  }
   const vPatterns = [
-    /[Vv][sS₁₂₃]?\s*[=:]\s*([\d.]+)\s*([kKmM]?)\s*[Vv]/g,
-    /([\d.]+)\s*([kKmM]?)\s*[Vv]\s*(?:source|supply|battery)/gi,
-    /(?:voltage|source|supply|battery)[^=]*?[=:of]*\s*([\d.]+)\s*([kKmM]?)\s*[Vv]?/gi,
+    /[Vv][sS₁₂₃]?\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmM]?)\s*[Vv]/g,
+    /([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmM]?)\s*[Vv]\s*(?:source|supply|battery)/gi,
+    /(?:voltage\s*source|supply|battery)\s*(?:of|[=:])?\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmM]?)\s*[Vv]\b/gi,
   ];
 
   for (const pat of vPatterns) {
+    if (components.some(c => c.type === 'voltage_source')) break;
     while ((match = pat.exec(normText)) !== null) {
       const vIdx = components.filter(c => c.type === 'voltage_source').length + 1;
       const label = `Vs${vIdx > 1 ? vIdx : ''}`;
       if (foundLabels.has(label)) continue;
       foundLabels.add(label);
       const value = parseValueWithUnit(match[1], match[2] || '');
-      if (value > 0) components.push({ type: 'voltage_source', label, value, nodeA: 1, nodeB: 0 });
+      if (Number.isFinite(value)) components.push({ type: 'voltage_source', label, value, nodeA: 1, nodeB: 0 });
     }
     if (components.some(c => c.type === 'voltage_source')) break;
   }
 
   // Current sources: "Is = 2mA", "5A current source"
   const iPatterns = [
-    /[Ii][sS]?\s*[=:]\s*([\d.]+)\s*([kKmMμuUnNpP]?)\s*[Aa]/g,
-    /([\d.]+)\s*([kKmMμuUnNpP]?)\s*[Aa]\s*(?:current\s*source)/gi,
+    /[Ii][sS]?\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMμuUnNpP]?)\s*[Aa]/g,
+    /([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMμuUnNpP]?)\s*[Aa]\s*(?:current\s*source)/gi,
   ];
 
   for (const pat of iPatterns) {
+    if (components.some(c => c.type === 'current_source')) break;
     while ((match = pat.exec(normText)) !== null) {
       const iIdx = components.filter(c => c.type === 'current_source').length + 1;
       const label = `Is${iIdx > 1 ? iIdx : ''}`;
       if (foundLabels.has(label)) continue;
       foundLabels.add(label);
       const value = parseValueWithUnit(match[1], match[2] || '');
-      if (value > 0) components.push({ type: 'current_source', label, value, nodeA: 1, nodeB: 0 });
+      if (Number.isFinite(value)) components.push({ type: 'current_source', label, value, nodeA: 1, nodeB: 0 });
     }
     if (components.some(c => c.type === 'current_source')) break;
   }
 
   // Capacitors: "C = 10μF", "C1 = 100nF"
-  const cPattern = /[Cc](\d*)\s*[=:]\s*([\d.]+)\s*([kKmMμuUnNpP]?)\s*[Ff]/g;
+  const cPattern = /[Cc](\d*)\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMμuUnNpP]?)\s*[Ff]/g;
   while ((match = cPattern.exec(normText)) !== null) {
     const idx = match[1] || String(components.filter(c => c.type === 'capacitor').length + 1);
     const label = `C${idx}`;
@@ -167,7 +149,7 @@ function extractComponents(text: string): ParsedComponent[] {
   }
 
   // Inductors: "L = 100mH", "L1 = 50mH"
-  const lPattern = /[Ll](\d*)\s*[=:]\s*([\d.]+)\s*([kKmMμuUnNpP]?)\s*[Hh]/g;
+  const lPattern = /[Ll](\d*)\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMμuUnNpP]?)\s*[Hh]/g;
   while ((match = lPattern.exec(normText)) !== null) {
     const idx = match[1] || String(components.filter(c => c.type === 'inductor').length + 1);
     const label = `L${idx}`;
@@ -178,13 +160,13 @@ function extractComponents(text: string): ParsedComponent[] {
   }
 
   // Extract node assignments from text: "R1 between node 1 and node 2"
-  const nodePattern = /([RrVvIiCcLl]\w*)\s*(?:between|from|connects?)\s*(?:node\s*)(\d+)\s*(?:and|to)\s*(?:node\s*)(\d+)/gi;
+  const nodePattern = /([RrVvIiCcLl]\w*)(?:\s*[=:]\s*[^,;\n]*?)?\s*(?:between|from|connects?)\s*(?:node\s*)?(\d+|ground|gnd)\s*(?:and|to)\s*(?:node\s*)?(\d+|ground|gnd)/gi;
   while ((match = nodePattern.exec(normText)) !== null) {
     const label = match[1].toUpperCase();
     const comp = components.find(c => c.label.toUpperCase() === label);
     if (comp) {
-      comp.nodeA = parseInt(match[2]);
-      comp.nodeB = parseInt(match[3]);
+      comp.nodeA = /ground|gnd/i.test(match[2]) ? 0 : Number(match[2]);
+      comp.nodeB = /ground|gnd/i.test(match[3]) ? 0 : Number(match[3]);
     }
   }
 
@@ -272,18 +254,18 @@ function detectTopology(text: string): 'series' | 'parallel' | undefined {
 }
 
 function extractFrequency(text: string): number | undefined {
-  const match = text.match(/([\d.]+)\s*([kKmMgG]?)\s*[Hh]z/);
+  const match = text.match(/([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMgG]?)\s*[Hh]z/);
   if (match) return parseValueWithUnit(match[1], match[2] || '');
-  const omegaMatch = text.match(/[ωw]\s*[=:]\s*([\d.]+)/i);
+  const omegaMatch = text.match(/[ωw]\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)/i);
   if (omegaMatch) return parseFloat(omegaMatch[1]) / (2 * Math.PI);
   return undefined;
 }
 
 function extractInitials(text: string): { voltage?: number; current?: number } {
   const result: { voltage?: number; current?: number } = {};
-  const vMatch = text.match(/v[_c(]*0[⁺+)]*\s*[=:]\s*([\d.]+)/i);
+  const vMatch = text.match(/v[_c(]*0[⁺+)]*\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)/i);
   if (vMatch) result.voltage = parseFloat(vMatch[1]);
-  const iMatch = text.match(/i[_l(]*0[⁺+)]*\s*[=:]\s*([\d.]+)/i);
+  const iMatch = text.match(/i[_l(]*0[⁺+)]*\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)/i);
   if (iMatch) result.current = parseFloat(iMatch[1]);
   return result;
 }
@@ -326,24 +308,16 @@ export function parseProblem(text: string): ParsedProblem {
   const vSource = components.find(c => c.type === 'voltage_source');
   const iSource = components.find(c => c.type === 'current_source');
 
-  // Auto-assign nodes if not specified (simple series assumption)
-  let nodeCounter = 1;
-  components.forEach(c => {
-    if (c.nodeA === undefined && c.nodeB === undefined) {
-      if (c.type === 'voltage_source') {
-        c.nodeA = nodeCounter;
-        c.nodeB = 0;
-      } else {
-        c.nodeA = nodeCounter;
-        c.nodeB = nodeCounter + 1;
-        nodeCounter++;
-      }
+  // Draft suggestions are explicit, never overwrite stated connections.
+  const unresolved = components.filter(c => c.nodeA === undefined || c.nodeB === undefined);
+  if (unresolved.length) {
+    warnings.push('Connections were not fully stated. Draft topology suggestions require confirmation; correct every node before solving.');
+    const passive = components.filter(c => !['voltage_source', 'current_source'].includes(c.type));
+    if (topology === 'parallel' || method === 'current_divider') {
+      passive.forEach(c => { c.nodeA ??= 1; c.nodeB ??= 0; });
+    } else if (topology === 'series' || ['ohms_law', 'power', 'voltage_divider', 'transient'].includes(method)) {
+      passive.forEach((c, i) => { c.nodeA ??= i + 1; c.nodeB ??= i === passive.length - 1 ? 0 : i + 2; });
     }
-  });
-  // Connect last resistor to ground if in a loop
-  const resistors = components.filter(c => c.type === 'resistor');
-  if (resistors.length > 0 && resistors[resistors.length - 1].nodeB !== 0) {
-    resistors[resistors.length - 1].nodeB = 0;
   }
 
   return {

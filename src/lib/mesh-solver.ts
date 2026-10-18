@@ -22,6 +22,11 @@ export interface MeshResult {
 }
 
 export function solveMesh(numMeshes: number, components: MeshComponent[]): MeshResult {
+  if (!Number.isInteger(numMeshes) || numMeshes < 1 || numMeshes > 20) throw new Error('Invalid mesh count.');
+  for (const c of components) {
+    if (c.type === 'current_source') throw new Error('Unsupported: mesh current-source/supermesh constraints are not implemented; use a confirmed nodal circuit.');
+    if (!Number.isFinite(c.value) || (c.type === 'resistor' && c.value <= 0) || c.meshes.length < 1 || c.meshes.length > 2 || new Set(c.meshes).size !== c.meshes.length || c.meshes.some(m => !Number.isInteger(m) || m < 1 || m > numMeshes)) throw new Error('Invalid component value or mesh membership.');
+  }
   const steps: string[] = [];
 
   steps.push(`═══════════════════════════════════════`);
@@ -139,7 +144,7 @@ export function solveMesh(numMeshes: number, components: MeshComponent[]): MeshR
 
   const meshCurrents = currents.map((c, i) => ({
     mesh: i + 1,
-    current: Math.round(c * 1e8) / 1e8,
+    current: c,
   }));
 
   steps.push(`  SOLUTION:`);
@@ -199,8 +204,7 @@ export function solveMesh(numMeshes: number, components: MeshComponent[]): MeshR
 
   // Step 7: Verification
   steps.push(`STEP 7: Power balance verification`);
-  if (totalDelivered === 0) totalDelivered = totalAbsorbed;
-  const balanced = Math.abs(totalDelivered - totalAbsorbed) / Math.max(totalDelivered, 1e-12) < 0.01;
+  const balanced = Math.abs(totalDelivered - totalAbsorbed) / Math.max(totalDelivered, 1e-12) < 1e-6;
   steps.push(`  P_delivered = ${totalDelivered.toFixed(6)}W`);
   steps.push(`  P_absorbed  = ${totalAbsorbed.toFixed(6)}W`);
   steps.push(balanced
@@ -218,6 +222,7 @@ export function solveMesh(numMeshes: number, components: MeshComponent[]): MeshR
     steps.push(`  Mesh ${m + 1}: ΣV = ${loopSum.toFixed(8)}V ${Math.abs(loopSum) < 1e-6 ? '✓' : '⚠'}`);
   }
 
+  if (!balanced || currents.some(v => !Number.isFinite(v)) || R.some((row, i) => Math.abs(row.reduce((sum, r, j) => sum + r * currents[j], -V[i])) > 1e-6 * Math.max(1e-12, Math.abs(V[i]), ...row.map((r, j) => Math.abs(r * currents[j]))))) throw new Error('Unverified: mesh KVL or power residual failed; answer withheld.');
   return {
     meshCurrents,
     branchCurrents,

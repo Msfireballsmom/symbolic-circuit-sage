@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle, ShieldCheck, XCircle } from "lucide-react";
@@ -29,12 +29,12 @@ const fmt = (v: number, unit?: string) => {
  * solve → power verification → full worked solution. Anything the engine cannot
  * prove is reported as unsupported, never approximated.
  */
-const VerifiedSolution = ({ parsed }: { parsed: ParsedProblem }) => {
+const VerifiedSolution = ({ parsed, onSolved }: { parsed: ParsedProblem; onSolved?: () => void }) => {
   const build = useMemo(() => buildCircuitModel(parsed), [parsed]);
   const check = useMemo(() => preflight(build.model), [build.model]);
 
   const answers = useMemo<Answer[]>(() => {
-    if (!check.ok) return [];
+    if (!check.ok || build.unsupported.length || analysisKindFor(parsed.method) === null) return [];
     return build.model.questions.map((question) => {
       try {
         return { question, result: solveQuestion(build.model, question) };
@@ -49,10 +49,10 @@ const VerifiedSolution = ({ parsed }: { parsed: ParsedProblem }) => {
         };
       }
     });
-  }, [build.model, check.ok]);
+  }, [build.model, build.unsupported.length, check.ok, parsed.method]);
 
   const verification = useMemo(() => {
-    if (!check.ok) return null;
+    if (!check.ok || build.unsupported.length || analysisKindFor(parsed.method) === null) return null;
     try {
       const dc = solveDCOperatingPoint(build.model);
       const b = powerBalance(build.model, dc);
@@ -63,13 +63,15 @@ const VerifiedSolution = ({ parsed }: { parsed: ParsedProblem }) => {
   }, [build.model, check.ok]);
 
   const namedKind = analysisKindFor(parsed.method);
+  const allVerified = answers.length > 0 && answers.every(answer => answer.result) && verification?.ok === true;
+  useEffect(() => { if (allVerified) onSolved?.(); }, [allVerified, onSolved]);
 
   return (
     <Card className="border-primary/30">
       <CardHeader className="p-4 pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-primary" />
-          Verified Solution — deterministic engine
+          {allVerified ? 'Verified solution — independent equations and power checks passed' : 'Answer withheld — unsupported or unverified'}
         </CardTitle>
         <p className="text-[10px] text-muted-foreground">
           Solved from the netlist you confirmed. Every number below comes from modified nodal
@@ -110,8 +112,7 @@ const VerifiedSolution = ({ parsed }: { parsed: ParsedProblem }) => {
             <p className="text-xs font-semibold text-foreground mb-1">Not covered by the verified engine</p>
             <p className="text-[11px] text-muted-foreground">
               {build.unsupported.map((u) => `${u.id} (${u.kind.replace(/_/g, " ")})`).join(", ")} —
-              these were left out of the deterministic solve rather than approximated. Use the
-              dedicated tab for that analysis; results there are marked preview.
+              the complete answer is withheld; these components cannot be omitted safely.
             </p>
           </div>
         )}
@@ -119,7 +120,7 @@ const VerifiedSolution = ({ parsed }: { parsed: ParsedProblem }) => {
         {namedKind === null && (
           <p className="text-[11px] text-muted-foreground">
             The named method “{parsed.method.replace(/_/g, " ")}” has no verified path yet. The DC
-            operating point below is still exact for the components the engine supports.
+            answer is withheld. Use a dedicated tab only within its explicitly tested scope.
           </p>
         )}
 
@@ -131,7 +132,7 @@ const VerifiedSolution = ({ parsed }: { parsed: ParsedProblem }) => {
               <span className="text-xs text-foreground">{question.sourceText}</span>
             </div>
             <div className="p-3 space-y-3">
-              {result ? (
+              {result && allVerified ? (
                 <>
                   <p className="text-lg font-mono font-bold text-primary glow-text">
                     {result.numeric !== undefined ? fmt(result.numeric, result.units) : "—"}
@@ -145,7 +146,7 @@ const VerifiedSolution = ({ parsed }: { parsed: ParsedProblem }) => {
                       ))}
                     </div>
                   )}
-                  <StepDisplay steps={result.steps} />
+                  <StepDisplay steps={result.steps} verification="verified" />
                   {result.assumptions.length > 0 && (
                     <div className="text-[11px] text-muted-foreground">
                       <span className="font-semibold text-foreground">Assumptions: </span>
@@ -155,7 +156,7 @@ const VerifiedSolution = ({ parsed }: { parsed: ParsedProblem }) => {
                 </>
               ) : (
                 <div className="text-xs text-warning">
-                  <p>{error?.message}</p>
+                  <p>{error?.message ?? 'Answer withheld because the complete solve or physical verification did not pass.'}</p>
                   {error?.remedy && <p className="text-muted-foreground mt-1">{error.remedy}</p>}
                 </div>
               )}

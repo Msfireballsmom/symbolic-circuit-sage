@@ -1,4 +1,6 @@
-# ET310 verification
-- [x] Fix RLC steady-state verification and add regression tests.
-- [x] Add original independent parameterized ET310 tests and developer coverage view.
-- [x] Run full tests, verify live RLC/coverage flow, check production build, report unsupported scope.
+# Production-readiness audit
+- [x] Audit visible math, parsing, generation, homework, admin, saved and export paths; remove fabricated claims.
+- [x] Block ambiguous/unsupported confirmed answers and add focused numerical/input regressions.
+- [x] Harden configured AI functions; deployed invalid-session checks return 401. Test Pro local solve controls exercised.
+- [x] Run full suite, independent ET310 corpus and matrix; check harness build and report evidence and limitations.
+- [ ] Verify authenticated real-photo extraction and administrator generation/history end-to-end. Blocker: no real authenticated student/admin session or photo supplied; Test Pro deliberately cannot call paid APIs.

@@ -30,7 +30,7 @@ const RLCTransientTab = () => {
     if (field === 'topology' || field === 'excitation') {
       setInput(prev => ({ ...prev, [field]: val }));
     } else {
-      setInput(prev => ({ ...prev, [field]: parseFloat(val) || 0 }));
+      setInput(prev => ({ ...prev, [field]: val.trim() ? Number(val) : NaN }));
     }
   };
 

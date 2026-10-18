@@ -47,12 +47,11 @@ const Index = () => {
               Circuit Analysis Engine v4
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-3">
-              Solve any circuit with
-              <span className="text-primary glow-text"> verified math</span>
+              Circuit calculations within
+              <span className="text-primary glow-text"> tested scope</span>
             </h1>
             <p className="text-muted-foreground text-sm sm:text-base max-w-xl leading-relaxed">
-              Upload assignments, get instant step-by-step solutions. DC, AC, transient, op-amps, Laplace, Fourier — 
-              with power balance verification. Check your homework before you submit.
+              Confirm circuit values and connections before solving. Independent tests cover specific DC and transient fixtures, not every assignment.
             </p>
           </div>
         </div>
@@ -60,7 +59,7 @@ const Index = () => {
 
       {/* Solver Tabs */}
       <main className="container px-4 py-8">
-        {['ac', 'laplace', 'fourier', 'bode'].includes(activeTab) && <p role="status" className="text-warning text-xs mb-4">
+        {['ac', 'laplace', 'fourier', 'bode', 'quick', 'homework', 'transient', 'exam'].includes(activeTab) && <p role="status" className="text-warning text-xs mb-4">
           Preview / unverified domain — coming soon for full course certification. Only the explicitly tested fixtures in developer coverage are certified; other results are not verified final answers.
         </p>}
         {import.meta.env.DEV && activeTab === 'coverage' && <ET310Coverage />}
@@ -226,7 +225,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t border-border py-6 mt-8">
         <div className="container px-4 flex items-center justify-between text-xs text-muted-foreground">
-          <span>Circuit Sage — verified circuit analysis</span>
+          <span>Circuit Sage — circuit analysis with explicit verification scope</span>
           <span className="font-mono">v4.0</span>
         </div>
       </footer>

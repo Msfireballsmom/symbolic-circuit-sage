@@ -17,49 +17,6 @@ interface SavedProblem {
 
 const STORAGE_KEY = 'circuit-solver-saved-problems';
 
-const DEFAULT_PROBLEMS: SavedProblem[] = [
-  {
-    id: 'default-1',
-    title: 'Basic Voltage Divider',
-    description: 'Vs=12V, R1=4kΩ, R2=6kΩ. Find V_out across R2.',
-    category: 'DC',
-    solverTab: 'quick',
-    savedAt: new Date().toISOString(),
-  },
-  {
-    id: 'default-2',
-    title: 'RC Transient Charging',
-    description: 'R=10kΩ, C=47μF, Vs=5V, v(0)=0V. Find v(t) and time to reach 3.15V.',
-    category: 'Transient',
-    solverTab: 'transient',
-    savedAt: new Date().toISOString(),
-  },
-  {
-    id: 'default-3',
-    title: 'Series RLC Underdamped',
-    description: 'R=50Ω, L=10mH, C=4.7μF, Vs=20V. Find damping type and v_C(t).',
-    category: 'RLC',
-    solverTab: 'rlc',
-    savedAt: new Date().toISOString(),
-  },
-  {
-    id: 'default-4',
-    title: 'AC Power Factor',
-    description: 'Vs=120V∠0° at 60Hz, Z=30+j40Ω. Find P, Q, S, and power factor.',
-    category: 'AC',
-    solverTab: 'ac',
-    savedAt: new Date().toISOString(),
-  },
-  {
-    id: 'default-5',
-    title: '2-Mesh Circuit',
-    description: 'Vs=24V, R1=2kΩ, R2=4kΩ (shared), R3=6kΩ. Find mesh currents.',
-    category: 'Mesh',
-    solverTab: 'mesh',
-    savedAt: new Date().toISOString(),
-  },
-];
-
 const SavedProblemsTab = () => {
   const [problems, setProblems] = useState<SavedProblem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,12 +28,11 @@ const SavedProblemsTab = () => {
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      setProblems(JSON.parse(stored));
-    } else {
-      setProblems(DEFAULT_PROBLEMS);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_PROBLEMS));
-    }
+    try {
+      const data: unknown = stored ? JSON.parse(stored) : [];
+      setProblems(Array.isArray(data) ? data.filter(p => p && typeof p.title === 'string' && typeof p.description === 'string' && !String(p.id).startsWith('default-')) : []);
+    } catch { setProblems([]); }
+
   }, []);
 
   const saveProblems = (updated: SavedProblem[]) => {

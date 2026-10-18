@@ -6,6 +6,7 @@
 // with a message that names what must be corrected — it never invents
 // topology or arithmetic.
 
+import { requireIndependentAgreement } from "./independent-dc";
 import type { AnalysisRequest, CircuitModel, Component } from "@/lib/circuit-model";
 
 export interface SolveResult {
@@ -356,6 +357,7 @@ export function verifyKCL(model: CircuitModel, dc: DCSolution): number {
 }
 
 function assertVerified(model: CircuitModel, dc: DCSolution): ReturnType<typeof powerBalance> {
+  requireIndependentAgreement(model, dc.nodeVoltages);
   const kcl = verifyKCL(model, dc);
   const pb = powerBalance(model, dc);
   const pscale = Math.max(1e-15, Math.abs(pb.delivered), Math.abs(pb.dissipated));
@@ -402,6 +404,9 @@ export function theveninAt(model: CircuitModel, node: string): TheveninResult {
   assertVerified(model, open);
   const vth = open.nodeVoltages[node];
   const test = solveDCOperatingPoint(model, { killSources: true, testCurrentNode: node });
+  const testSource: Component = { id: '__verification_test', kind: 'isource', terminals: [node, groundId(model)], value: { magnitude: 1, unit: 'amp' }, confidence: { exists: 1, value: 1 }, provenance: { from: 'text' } };
+  const killed = model.components.map(c => isIndependent(c) ? { ...c, value: { ...c.value, magnitude: 0 } } : c);
+  assertVerified({ ...model, components: [...killed, testSource] }, { ...test, branchCurrents: { ...test.branchCurrents, __verification_test: 1 } });
   const rth = test.nodeVoltages[node];
   if (!Number.isFinite(rth) || Math.abs(rth) < 1e-12) {
     throw new UnsupportedProblemError(
@@ -469,7 +474,9 @@ export function solveFirstOrder(
     );
   }
   const tau = isCap ? req * value : value / req;
-  const x0 = el.initial?.magnitude ?? 0;
+  const expectedInitialUnit = isCap ? 'volt' : 'amp';
+  if (!el.initial || el.initial.unit !== expectedInitialUnit || !Number.isFinite(el.initial.magnitude)) throw new UnsupportedProblemError(`Missing or dimensionally invalid initial condition for ${el.id}.`, `Supply initial ${expectedInitialUnit}.`);
+  const x0 = el.initial.magnitude;
 
   // t = 0⁺: capacitor → voltage source v(0); inductor → current source i(0) (t0→t1).
   const replacement: Component = isCap
@@ -496,7 +503,7 @@ export function solveFirstOrder(
   const vinf = read(dcInf);
   const units = tgt.type === "node" ? "V" : "A";
   const t = at === "inf" ? Infinity : at === "0-" || at === "0+" ? 0 : at;
-  if (typeof t === "number" && t < 0) {
+  if (typeof t === "number" && (Number.isNaN(t) || t < 0)) {
     throw new UnsupportedProblemError("Negative times are before the switching event.", "Ask for t ≥ 0.");
   }
   const val = at === "inf" ? vinf : vinf + (v0 - vinf) * Math.exp(-t / tau);
@@ -593,6 +600,7 @@ export function solveQuestion(model: CircuitModel, question: AnalysisRequest): S
       const full = solveDCOperatingPoint(model);
       assertVerified(model, full);
       const part = solveDCOperatingPoint(model, { onlySource: src.id });
+      assertVerified(model, part);
       const steps = [
         `Keep only ${src.id}; short every other voltage source and open every other current source (dependent sources stay).`,
         ...part.steps,
@@ -664,7 +672,7 @@ export function solveQuestion(model: CircuitModel, question: AnalysisRequest): S
         );
       }
       const tr = solveFirstOrder(model, question.target as { type: "node" | "component"; ref: string }, at);
-      assumptions.push("Sources are constant for t > 0; the storage element starts from its stated initial condition (0 if none).");
+      assumptions.push("Sources are constant for t > 0; the storage element starts from its stated initial condition.");
       return { numeric: tr.value, units: tr.units, steps: tr.steps, assumptions, extras: { tau: tr.tau, x0: tr.v0, xinf: tr.vinf } };
     }
 

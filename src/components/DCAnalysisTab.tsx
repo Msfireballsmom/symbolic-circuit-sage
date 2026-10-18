@@ -31,7 +31,7 @@ const DCAnalysisTab = () => {
     if (field === 'type') {
       updated[i] = { ...updated[i], type: val as DCComponent['type'] };
     } else {
-      updated[i] = { ...updated[i], [field]: Number(val) };
+      updated[i] = { ...updated[i], [field]: String(val).trim() ? Number(val) : NaN };
     }
     setComponents(updated);
   };
@@ -167,9 +167,9 @@ const DCAnalysisTab = () => {
             />
           </div>
 
-          <MatrixDisplay G={result.matrix.G} I={result.matrix.I} labels={result.matrix.labels} />
+          {result.matrix.G.length > 0 && <MatrixDisplay G={result.matrix.G} I={result.matrix.I} labels={result.matrix.labels} />}
           <div className="p-4 rounded-lg bg-card border border-border">
-            <StepDisplay steps={result.steps} />
+            <StepDisplay steps={result.steps} verification="verified" />
           </div>
         </div>
       )}

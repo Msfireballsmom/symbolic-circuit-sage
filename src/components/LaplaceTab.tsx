@@ -43,7 +43,9 @@ const LaplaceTab = () => {
   const [error, setError] = useState('');
 
   const parseCoeffs = (s: string): number[] => {
-    return s.split(',').map(x => parseFloat(x.trim())).filter(n => !isNaN(n));
+    const values = s.split(',').map(x => x.trim() ? Number(x.trim()) : NaN);
+    if (values.some(v => !Number.isFinite(v))) throw new Error('Every coefficient must be a finite number; empty or invalid entries cannot be discarded.');
+    return values;
   };
 
   const applyPreset = (preset: typeof presets[0]) => {

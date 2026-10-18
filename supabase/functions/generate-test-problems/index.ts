@@ -1,26 +1,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { authorize, readBody, gatewayFetch, requireGatewayOK, errorResponse, corsHeaders, z, RequestError } from '../_shared/ai-safety.ts';
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { category } = await req.json();
+    await authorize(req, 'generate');
+    const body = z.object({ category: z.enum(['dc_nodal', 'mesh']) }).safeParse(await readBody(req, 2000));
+    if (!body.success) throw new RequestError(400, 'Only DC nodal and explicit resistor/voltage-source mesh generation are supported; other domains are unverified.');
+    const { category } = body.data;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    if (!LOVABLE_API_KEY) throw new RequestError(503, "AI service is not configured");
 
-    const systemPrompt = `You are a professor of electrical engineering at MIT. Generate a realistic circuit analysis problem that would appear on a university exam or homework assignment.
+    const systemPrompt = `Generate original synthetic circuit exercises; never claim a university, course, textbook or answer-key source. Generate a realistic circuit analysis problem that would appear on a university exam or homework assignment.
 
 CRITICAL: You MUST call the generate_problem tool. Do NOT respond with plain text.
 
 Requirements:
 - The problem must be solvable with standard circuit analysis techniques
 - Include specific numerical values (realistic component values)
-- The problem must have a unique, deterministic solution
+- The problem must have a unique, deterministic solution. For mesh use only resistors and voltage sources, explicit numMeshes and memberships. Expected DC labels must be V1, V2 etc in V; mesh labels i1, i2 etc in A. Expected answers are untrusted draft checks, not certification.
 - Provide the complete structured netlist so a solver can compute the answer
 - Also provide the correct answer so it can be verified
 - Make the problem challenging but solvable (sophomore/junior level)
@@ -41,7 +41,7 @@ Requirements:
 
     const userPrompt = categoryPrompts[category] || categoryPrompts.dc_nodal;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await gatewayFetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -140,41 +140,22 @@ Requirements:
       }),
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits in Settings → Workspace → Usage." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const text = await response.text();
-      console.error("AI gateway error:", response.status, text);
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
+    await requireGatewayOK(response);
 
     const data = await response.json();
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
 
-    if (!toolCall) {
-      const content = data.choices?.[0]?.message?.content;
-      return new Response(JSON.stringify({ error: "AI did not return structured data", rawContent: content }), {
-        status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!toolCall?.function?.arguments) throw new RequestError(422, 'AI did not return structured data; no answer available.');
+    const schema = z.object({ title: z.string().min(1).max(200), description: z.string().min(1).max(20000), difficulty: z.enum(['easy','medium','hard']), category: z.string().max(100), source_style: z.string().max(200), components: z.array(z.object({ type: z.enum(['resistor','voltage_source','current_source']), label: z.string().min(1).max(80), value: z.number().finite(), nodeA: z.number().int().min(0).max(10000), nodeB: z.number().int().min(0).max(10000), meshes: z.array(z.number().int().min(1).max(20)).optional() })).min(1).max(100), analysis_method: z.enum(['dc_nodal','mesh']), parameters: z.object({ numMeshes: z.number().int().min(1).max(20).optional() }).optional(), expected_answers: z.array(z.object({ label: z.string().min(1).max(80), value: z.number().finite(), unit: z.enum(['V','A']) })).min(1).max(100), solution_steps: z.array(z.string().max(2000)).max(100) });
+    const parsed = schema.safeParse(JSON.parse(toolCall.function.arguments));
+    if (!parsed.success) throw new RequestError(502, 'Generated problem is incomplete or outside supported scope.');
+    const problem = { ...parsed.data, source_style: 'Original AI-generated draft — not textbook provenance', solution_steps: [] };
 
-    const problem = JSON.parse(toolCall.function.arguments);
 
     return new Response(JSON.stringify(problem), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("generate-test-problems error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return errorResponse(e);
   }
 });

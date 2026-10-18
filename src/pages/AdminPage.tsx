@@ -81,6 +81,7 @@ const AdminPage = () => {
 
     setReport(finalReport);
     setIsRunning(false);
+    return finalReport;
   };
 
   const handleRunAITests = async () => {
@@ -103,22 +104,23 @@ const AdminPage = () => {
 
     setAiReport(finalReport);
     setIsRunningAI(false);
+    return finalReport;
   };
 
   const handleRunAll = async () => {
     setActiveTab('hardcoded');
-    await handleRunTests();
+    const localReport = await handleRunTests();
     setActiveTab('ai');
-    await handleRunAITests();
+    const generatedReport = await handleRunAITests();
     // Save combined audit log
-    const totalPassed = (report?.passed || 0) + (aiReport?.passed || 0);
-    const totalTests = (report?.totalTests || 0) + (aiReport?.totalTests || 0);
-    const totalFailed = (report?.failed || 0) + (aiReport?.failed || 0);
-    const totalErrors = (report?.errors || 0) + (aiReport?.errors || 0);
-    const totalDuration = (report?.durationMs || 0) + (aiReport?.durationMs || 0);
+    const totalPassed = localReport.passed + generatedReport.passed;
+    const totalTests = localReport.totalTests + generatedReport.totalTests;
+    const totalFailed = localReport.failed + generatedReport.failed;
+    const totalErrors = localReport.errors + generatedReport.errors;
+    const totalDuration = localReport.durationMs + generatedReport.durationMs;
     await saveAuditLog(totalTests, totalPassed, totalFailed, totalErrors, totalDuration, [
-      ...(report?.results || []).map(r => ({ name: r.name, status: r.status, type: 'hardcoded' })),
-      ...(aiReport?.results || []).map(r => ({ title: r.title, status: r.status, type: 'ai' })),
+      ...localReport.results.map(r => ({ name: r.name, status: r.status, type: 'hardcoded' })),
+      ...generatedReport.results.map(r => ({ title: r.title, status: r.status, type: 'ai' })),
     ]);
   };
 

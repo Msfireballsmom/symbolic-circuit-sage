@@ -3,7 +3,12 @@ export function exportSolutionAsPDF(
   title: string,
   steps: string[],
   results?: { label: string; value: string }[],
+  verification: 'verified' | 'unverified' = 'unverified',
 ) {
+  const escape = (value: string) => value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
+  title = escape(title);
+  steps = steps.map(escape);
+  results = results?.map(r => ({ label: escape(r.label), value: escape(r.value) }));
   // Use browser print to generate PDF-quality output
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
@@ -61,7 +66,7 @@ export function exportSolutionAsPDF(
         ${stepsHTML}
       </div>
       <div class="footer">
-        Circuit Sage — Verified with KCL/KVL power balance
+        Circuit Sage — ${verification === 'verified' ? 'Verified: independent equations and applicable physical checks passed' : 'Unverified — not a certified final answer'}
       </div>
       <script>
         window.onload = () => { window.print(); };
