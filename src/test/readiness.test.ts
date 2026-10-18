@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { parseQuantity } from '@/lib/quantity';
 import { solveDC, solveAC, solveTransient } from '@/lib/circuit-solver';
 import { buildCircuitModel } from '@/lib/parsed-to-model';
@@ -6,6 +6,7 @@ import { requireIndependentAgreement } from '@/lib/independent-dc';
 import { solveQuestion } from '@/lib/model-solver';
 import { ExtractionSchema } from '@/lib/extraction-schema';
 import { parseProblem } from '@/lib/problem-parser';
+import { exportSolutionAsPDF } from '@/lib/pdf-export';
 
 describe('Production verification guards', () => {
   it('retains numbered source values and nodes instead of reading question node numbers as volts', () => {
@@ -57,5 +58,20 @@ describe('Production verification guards', () => {
   });
   it('does not fabricate missing vision fields', () => {
     expect(ExtractionSchema.safeParse({ components: [{ type: 'resistor', label: 'R1', value: 100 }], analysisMethod: 'dc_nodal', findWhat: ['voltage'], confidence: 1 }).success).toBe(false);
+  });
+  it('rejects parallel AC rather than applying the series formula', () => {
+    expect(() => solveAC({ Vm: 10, phase: 0, frequency: 60, R: 100, L: 0.1, C: 1e-6, config: 'parallel' })).toThrow(/series/i);
+  });
+  it('escapes user export content and defaults to uncertified status', () => {
+    const write = vi.fn();
+    const popup = vi.spyOn(window, 'open').mockReturnValue({ document: { write, close: vi.fn() } } as unknown as Window);
+    try {
+      exportSolutionAsPDF('<img src=x onerror=alert(1)>', ['<script>steal()</script>']);
+      const html = write.mock.calls[0][0] as string;
+      expect(html).not.toContain('<img src=x');
+      expect(html).not.toContain('<script>steal()');
+      expect(html).toContain('&lt;script&gt;steal()');
+      expect(html).toContain('Unverified — not a certified final answer');
+    } finally { popup.mockRestore(); }
   });
 });
