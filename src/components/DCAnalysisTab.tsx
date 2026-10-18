@@ -19,14 +19,17 @@ const DCAnalysisTab = () => {
   const [error, setError] = useState('');
 
   const addComponent = () => {
+    setResult(null);
     setComponents([...components, { type: 'resistor', value: 1000, nodeA: 1, nodeB: 0 }]);
   };
 
   const removeComponent = (i: number) => {
+    setResult(null);
     setComponents(components.filter((_, idx) => idx !== i));
   };
 
   const updateComponent = (i: number, field: keyof DCComponent, val: string | number) => {
+    setResult(null);
     const updated = [...components];
     if (field === 'type') {
       updated[i] = { ...updated[i], type: val as DCComponent['type'] };

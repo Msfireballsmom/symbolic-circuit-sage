@@ -18,6 +18,7 @@ import { useFreeRun } from "@/hooks/useFreeRun";
 import VerifiedSolution from "./VerifiedSolution";
 import StepDisplay from "./StepDisplay";
 import MatrixDisplay from "./MatrixDisplay";
+import { WORKFLOW_AVAILABILITY } from '@/lib/workflow-availability';
 
 interface CircuitSagePanelProps {
   onNavigateToTab?: (tab: string) => void;
@@ -77,6 +78,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!WORKFLOW_AVAILABILITY.photo.enabled) { setError(WORKFLOW_AVAILABILITY.photo.reason); return; }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -166,11 +168,12 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setConfirmed(null); setParsed(null); setResult(null); setParseSteps([]); setError('');
     if (file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
       const text = await file.text();
       setProblemText(text);
     } else {
-      setProblemText(`[Uploaded: ${file.name}] — Paste the problem text from the file here.`);
+      setProblemText(''); setError('Coming Soon: PDF/DOCX parsing is disabled. Paste the problem text or upload a plain text file.');
     }
   };
 
@@ -231,8 +234,8 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
             <Button onClick={handleParse} variant="outline" className="gap-2 text-xs" disabled={!problemText.trim()}>
               <Play className="w-3.5 h-3.5" /> Parse Text
             </Button>
-            <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => imageInputRef.current?.click()} disabled={isExtracting}>
-              <Image className="w-3.5 h-3.5" /> Upload Image
+            <Button variant="outline" size="sm" className="gap-1 text-xs" disabled>
+              <Image className="w-3.5 h-3.5" /> Upload Image — Coming Soon / Unverified
             </Button>
             <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={() => fileInputRef.current?.click()}>
               <Upload className="w-3.5 h-3.5" /> Upload .txt
@@ -245,6 +248,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
               </Button>
             )}
           </div>
+          <p role="status" className="text-xs text-warning">{WORKFLOW_AVAILABILITY.photo.reason} PDF/DOCX parsing is Coming Soon; plain text input remains available.</p>
 
           {/* Quick Examples */}
           <div>
@@ -272,7 +276,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
             <CardTitle className="text-sm flex items-center gap-2">
               Extracted Components — Verify & Edit
               <Badge variant={parsed.confidence > 0.6 ? "default" : "secondary"} className="text-[9px]">
-                {(parsed.confidence * 100).toFixed(0)}% confidence
+                Draft only — not recognition accuracy
               </Badge>
               {uploadedImage && <Badge variant="outline" className="text-[9px]">AI Extracted</Badge>}
             </CardTitle>
@@ -376,8 +380,12 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
+              {parsed.method === 'thevenin' && <label className="text-xs text-muted-foreground">Output node (return = ground)
+                <input aria-label="Output node" type="number" min={1} className="ml-2 w-20 border border-border bg-background text-foreground" value={parsed.outputNode ?? ''} onChange={e => { setConfirmed(null); setParsed({ ...parsed, outputNode: e.target.value.trim() ? Number(e.target.value) : undefined }); }} />
+              </label>}
               <Button
                 onClick={() => setConfirmed(structuredClone(parsed))}
+                disabled={parsed.method === 'thevenin' && parsed.outputNode === undefined}
                 className="gap-2 text-xs"
               >
                 <CheckCircle className="w-3.5 h-3.5" /> Confirm netlist &amp; solve

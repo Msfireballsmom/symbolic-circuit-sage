@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { solveTransient, TransientInput, TransientResult } from "@/lib/circuit-solver";
 import StepDisplay from "./StepDisplay";
 import { Play, Timer } from "lucide-react";
+import { solveVerifiedTransient } from '@/lib/verified-transient';
 
 const TransientTab = () => {
   const [input, setInput] = useState<TransientInput>({
@@ -20,6 +21,7 @@ const TransientTab = () => {
   const [error, setError] = useState('');
 
   const update = (field: keyof TransientInput, val: string) => {
+    setResult(null);
     if (field === 'type') {
       setInput({ ...input, type: val as 'RC' | 'RL' });
     } else {
@@ -27,7 +29,7 @@ const TransientTab = () => {
     }
   };
 
-  const solve = () => { try { setError(''); setResult(solveTransient(input)); } catch (e) { setResult(null); setError(e instanceof Error ? e.message : 'Unverified transient.'); } };
+  const solve = () => { try { setError(''); setResult(solveVerifiedTransient(input)); } catch (e) { setResult(null); setError(e instanceof Error ? e.message : 'Unverified transient.'); } };
 
   // Simple SVG chart
   const renderChart = () => {
@@ -128,6 +130,7 @@ const TransientTab = () => {
       {error && <p role="alert" className="text-destructive">{error}</p>}
       {result && (
         <div className="space-y-4 animate-slide-up">
+          <p role="status" className="text-success text-sm">Verified — explicit series RC/RL; independent endpoint equations, continuity and power checks passed.</p>
           <div className="p-4 rounded-lg bg-card border border-border">
             <div className="flex flex-wrap gap-4 mb-4">
               <div className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
@@ -149,7 +152,7 @@ const TransientTab = () => {
           </div>
 
           <div className="p-4 rounded-lg bg-card border border-border">
-            <StepDisplay steps={result.steps} />
+            <StepDisplay steps={result.steps} verification="verified" />
           </div>
         </div>
       )}

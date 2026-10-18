@@ -1,6 +1,9 @@
-# Production-readiness audit
+# Focused product blocker pass
 - [x] Audit visible math, parsing, generation, homework, admin, saved and export paths; remove fabricated claims.
 - [x] Block ambiguous/unsupported confirmed answers and add focused numerical/input regressions.
 - [x] Harden configured AI functions; deployed invalid-session checks return 401. Test Pro local solve controls exercised.
 - [x] Run full suite, independent ET310 corpus and matrix; check harness build and report evidence and limitations.
-- [ ] Verify authenticated real-photo extraction and administrator generation/history end-to-end. Blocker: no real authenticated student/admin session or photo supplied; Test Pro deliberately cannot call paid APIs.
+- [x] Disable unverified calculators, grading, photo and administrator persistence/generation actions; preserve verified local paths.
+- [x] Fix confirmed target selection, unit-aware initial conditions, power answers and result withholding; add regressions.
+- [x] Run full suite, ET310/matrix and live supported/disabled workflow checks; report exact scope.
+- [ ] Verify authenticated real-photo extraction and administrator generation/history end-to-end. Blocker: no registered auth users, no real administrator session or uploaded test image; these actions remain disabled.

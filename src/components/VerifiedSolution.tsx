@@ -11,6 +11,7 @@ import {
 } from "@/lib/model-solver";
 import type { ParsedProblem } from "@/lib/problem-parser";
 import type { AnalysisRequest } from "@/lib/circuit-model";
+import { requireIndependentAgreement } from '@/lib/independent-dc';
 
 interface Answer {
   question: AnalysisRequest;
@@ -55,6 +56,7 @@ const VerifiedSolution = ({ parsed, onSolved }: { parsed: ParsedProblem; onSolve
     if (!check.ok || build.unsupported.length || analysisKindFor(parsed.method) === null) return null;
     try {
       const dc = solveDCOperatingPoint(build.model);
+      requireIndependentAgreement(build.model, dc.nodeVoltages);
       const b = powerBalance(build.model, dc);
       return { ...b, ok: Math.abs(b.residual) < 1e-6 * Math.max(1, Math.abs(b.delivered)) };
     } catch {
@@ -141,7 +143,7 @@ const VerifiedSolution = ({ parsed, onSolved }: { parsed: ParsedProblem; onSolve
                     <div className="flex flex-wrap gap-2">
                       {Object.entries(result.extras).map(([k, v]) => (
                         <Badge key={k} variant="secondary" className="text-[10px] font-mono">
-                          {k} = {fmt(v)}
+                          {k} = {fmt(v, ({ vth: 'V', rth: 'Ω', inorton: 'A', rload: 'Ω', pmax: 'W', tau: 's', x0: result.units, xinf: result.units } as Record<string, string | undefined>)[k])}
                         </Badge>
                       ))}
                     </div>
@@ -165,7 +167,7 @@ const VerifiedSolution = ({ parsed, onSolved }: { parsed: ParsedProblem; onSolve
         ))}
 
         {/* Power verification */}
-        {verification && (
+        {verification && allVerified && (
           <div className={`p-3 rounded-md border ${verification.ok ? "bg-success/10 border-success/30" : "bg-warning/10 border-warning/30"}`}>
             <p className={`text-xs font-semibold flex items-center gap-1.5 ${verification.ok ? "text-success" : "text-warning"}`}>
               {verification.ok ? <CheckCircle className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
