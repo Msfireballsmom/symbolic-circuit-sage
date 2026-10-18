@@ -3,3 +3,7 @@
 - RLC verification separates physical KCL/KVL/continuity residuals from finite-time settling; reject physical failures and withhold Verified status when endpoint residuals fail.
 - Parallel voltage-step RLC is rejected until the source connection is explicitly modeled, because the previous finite-current assumption contradicted ideal-source physics.
 - Run the entire automated suite after changes; production compilation is managed by the Lovable harness, and its latest build log must be checked before completion.
+- Verify canonical DC with a separately implemented branch tableau, then KCL and power residuals; independent formulations catch stamping errors without trusting solver labels.
+- Confirmed extraction is the only Snap solve path; missing fields and unsupported methods/components block the whole answer rather than dropping parts.
+- AI endpoints validate sessions, admin generation roles, bounded schemas and atomic service-only request budgets before calling the existing gateway; browser code never holds private credentials.
+- Export verification defaults to unverified and is explicitly passed only by a checked result; escaped user content prevents executable export HTML.
