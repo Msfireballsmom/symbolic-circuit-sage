@@ -69,6 +69,10 @@ export function analysisKindFor(method: ParsedProblem["method"]): AnalysisKind |
 
 export function buildCircuitModel(parsed: ParsedProblem): ModelBuild {
   const unsupported: { id: string; kind: string }[] = [];
+  for (const reason of parsed.blockingReasons ?? []) unsupported.push({ id: reason, kind: 'invalid assignment' });
+  if (parsed.method === 'thevenin' && (parsed.outputNode === undefined || !Number.isInteger(parsed.outputNode) || parsed.outputNode <= 0 || !parsed.components.some(c => c.nodeA === parsed.outputNode || c.nodeB === parsed.outputNode))) {
+    unsupported.push({ id: 'Output terminal', kind: 'choose an existing non-ground output node; the other terminal is ground' });
+  }
   const components: Component[] = [];
   const connects = new Map<string, string[]>();
 
@@ -143,12 +147,13 @@ function buildQuestions(parsed: ParsedProblem, components: Component[]): Analysi
   let label = 97; // 'a'
 
   if (kind === "transient") {
-    const target = nodes[0];
+    const storage = components.find(c => c.kind === 'capacitor' || c.kind === 'inductor');
+    const target = storage?.kind === 'inductor' ? storage.id : storage?.terminals.find(n => n !== 'gnd');
     if (target) {
       questions.push({
         label: String.fromCharCode(label++),
         kind: "transient",
-        target: { type: "node", ref: target },
+        target: { type: storage?.kind === 'inductor' ? 'component' : 'node', ref: target },
         at: "inf",
         deliverable: "number",
         sourceText: `Find the steady-state value at ${target}.`,
@@ -160,10 +165,7 @@ function buildQuestions(parsed: ParsedProblem, components: Component[]): Analysi
   if (kind === "thevenin") {
     // The port must not sit directly across an ideal source — that always
     // yields R_th = 0 and is never the terminal pair a problem asks about.
-    const sourceNodes = new Set(
-      components.filter((c) => c.kind === "vsource").flatMap((c) => c.terminals),
-    );
-    const port = nodes.find((n) => !sourceNodes.has(n)) ?? nodes[0];
+    const port = parsed.outputNode === undefined ? undefined : nodeName(parsed.outputNode);
     if (port) {
       for (const k of ["thevenin", "norton", "maxpower"] as const) {
         questions.push({
@@ -195,10 +197,10 @@ function buildQuestions(parsed: ParsedProblem, components: Component[]): Analysi
   for (const c of components.filter((x) => x.kind === "resistor")) {
     questions.push({
       label: String.fromCharCode(label++),
-      kind: "solve",
+      kind: kind === 'power' ? 'power' : 'solve',
       target: { type: "component", ref: c.id },
       deliverable: "number",
-      sourceText: `Find the current through ${c.id}.`,
+      sourceText: kind === 'power' ? `Find the power absorbed by ${c.id}.` : `Find the current through ${c.id}.`,
     });
   }
   return questions;

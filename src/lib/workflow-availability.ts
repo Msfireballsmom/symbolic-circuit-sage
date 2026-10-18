@@ -1,0 +1,20 @@
+export const WORKFLOW_AVAILABILITY = {
+  quick: { enabled: false, reason: 'Quick calculators do not independently verify each entered problem. Use DC Nodal or a confirmed Snap & Solve circuit.' },
+  mesh: { enabled: false, reason: 'General mesh inputs lack an independent per-result check. Resistive two-mesh fixtures pass tests; use DC Nodal for supported networks.' },
+  ac: { enabled: false, reason: 'AC phasor results lack an independent verification corpus.' },
+  laplace: { enabled: false, reason: 'Only limited transfer-function fixtures are tested; broad transforms and repeated poles are not verified.' },
+  fourier: { enabled: false, reason: 'Only selected waveform coefficients are tested; the complete analysis is not independently verified.' },
+  bode: { enabled: false, reason: 'Frequency-response plots and results lack independent verification.' },
+  homework: { enabled: false, reason: 'The reference calculator and grading tolerance are not independently validated. No correctness score or answer key is available.' },
+  exam: { enabled: false, reason: 'Exam correctness and answer keys are not independently validated. Attempts must not be counted as correct answers.' },
+  photo: { enabled: false, reason: 'Authenticated image extraction has not been tested end-to-end. A real signed-in account and non-private circuit test image are required.' },
+  generation: { enabled: false, reason: 'Authenticated administrator generation and independent answer grading have not been validated end-to-end.' },
+  history: { enabled: false, reason: 'Administrator report persistence and readback have not been validated with a real administrator account.' },
+  dc: { enabled: true, reason: 'Independent branch equations, KCL and power checks are required before displaying results.' },
+  transient: { enabled: true, reason: 'Series RC/RL only, explicit initial conditions, independent endpoint equations and physical checks.' },
+  rlc: { enabled: true, reason: 'Tested series natural/step and parallel natural responses only; endpoint failures withhold results.' },
+  sage: { enabled: true, reason: 'Confirmed text circuit only; unsupported components or questions withhold the whole answer.' },
+  saved: { enabled: true, reason: 'Browser-local notes only, not cloud synchronization or certified answers.' },
+  reference: { enabled: true, reason: 'Formula reference, not a numerical solution or course certification.' },
+} as const;
+export type WorkflowId = keyof typeof WORKFLOW_AVAILABILITY;

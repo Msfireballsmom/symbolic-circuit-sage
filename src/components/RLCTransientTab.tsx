@@ -27,6 +27,7 @@ const RLCTransientTab = () => {
   const [error, setError] = useState('');
 
   const update = (field: keyof RLCInput, val: string) => {
+    setResult(null);
     if (field === 'topology' || field === 'excitation') {
       setInput(prev => ({ ...prev, [field]: val }));
     } else {
@@ -38,7 +39,9 @@ const RLCTransientTab = () => {
     try {
       setError('');
       const inp = atRest ? { ...input, vC0: 0, iL0: 0 } : input;
-      setResult(solveRLC(inp));
+      const solved = solveRLC(inp);
+      if (!solved.verification.ok) throw new Error('Unverified: physical or steady-state endpoint residuals did not pass. Results and exports are withheld; increase t_final or check the circuit.');
+      setResult(solved);
     } catch (e: any) {
       setError(e.message);
       setResult(null);
@@ -157,7 +160,7 @@ const RLCTransientTab = () => {
             <Label className="text-xs text-muted-foreground">Initial Conditions</Label>
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground">At rest</Label>
-              <Switch checked={atRest} onCheckedChange={setAtRest} />
+              <Switch checked={atRest} onCheckedChange={value => { setAtRest(value); setResult(null); }} />
             </div>
           </div>
           {!atRest && (
@@ -250,7 +253,7 @@ const RLCTransientTab = () => {
           </div>
 
           <div className="p-4 rounded-lg bg-card border border-border">
-            <StepDisplay steps={result.steps} />
+            <StepDisplay steps={result.steps} verification="verified" />
           </div>
         </div>
       )}

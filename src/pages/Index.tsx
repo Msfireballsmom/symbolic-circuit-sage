@@ -1,18 +1,11 @@
 import { useState } from "react";
 import SolverHeader from "@/components/SolverHeader";
 import DCAnalysisTab from "@/components/DCAnalysisTab";
-import MeshAnalysisTab from "@/components/MeshAnalysisTab";
 import TransientTab from "@/components/TransientTab";
 import RLCTransientTab from "@/components/RLCTransientTab";
-import ACPhasorTab from "@/components/ACPhasorTab";
-import LaplaceTab from "@/components/LaplaceTab";
-import FourierTab from "@/components/FourierTab";
-import QuickSolverTab from "@/components/QuickSolverTab";
-import BodePlotTab from "@/components/BodePlotTab";
 import CircuitSagePanel from "@/components/CircuitSagePanel";
 import SavedProblemsTab from "@/components/SavedProblemsTab";
-import PracticeExamTab from "@/components/PracticeExamTab";
-import CheckHomeworkTab from "@/components/CheckHomeworkTab";
+import UnavailableWorkflow from '@/components/UnavailableWorkflow';
 import TierGate from "@/components/TierGate";
 import TestModeBanner from "@/components/TestModeBanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,7 +15,7 @@ import { TAB_TIER_REQUIREMENTS, tierMeetsRequirement, TierKey } from "@/lib/tier
 import ET310Coverage from '@/components/ET310Coverage';
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState("quick");
+  const [activeTab, setActiveTab] = useState("dc");
   const { subscription } = useAuth();
 
   const userTier = subscription?.tier as TierKey | null;
@@ -59,10 +52,6 @@ const Index = () => {
 
       {/* Solver Tabs */}
       <main className="container px-4 py-8">
-        {['ac', 'laplace', 'fourier', 'bode', 'quick', 'homework', 'transient', 'exam'].includes(activeTab) && <p role="status" className="text-warning text-xs mb-4">
-          Preview / unverified domain — coming soon for full course certification. Only the explicitly tested fixtures in developer coverage are certified; other results are not verified final answers.
-        </p>}
-        {import.meta.env.DEV && activeTab === 'coverage' && <ET310Coverage />}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-card border border-border h-auto p-1 flex-wrap">
             {import.meta.env.DEV && <TabsTrigger value="coverage" className="text-xs">ET310 Coverage</TabsTrigger>}
@@ -136,19 +125,20 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="quick"><QuickSolverTab /></TabsContent>
+          <TabsContent value="quick"><UnavailableWorkflow id="quick" /></TabsContent>
+          {import.meta.env.DEV && <TabsContent value="coverage"><ET310Coverage /></TabsContent>}
           <TabsContent value="dc"><TierGate tabId="dc"><DCAnalysisTab /></TierGate></TabsContent>
-          <TabsContent value="mesh"><TierGate tabId="mesh"><MeshAnalysisTab /></TierGate></TabsContent>
+          <TabsContent value="mesh"><UnavailableWorkflow id="mesh" /></TabsContent>
           <TabsContent value="transient"><TierGate tabId="transient"><TransientTab /></TierGate></TabsContent>
           <TabsContent value="rlc"><TierGate tabId="rlc"><RLCTransientTab /></TierGate></TabsContent>
-          <TabsContent value="ac"><TierGate tabId="ac"><ACPhasorTab /></TierGate></TabsContent>
-          <TabsContent value="laplace"><TierGate tabId="laplace"><LaplaceTab /></TierGate></TabsContent>
-          <TabsContent value="fourier"><TierGate tabId="fourier"><FourierTab /></TierGate></TabsContent>
-          <TabsContent value="bode"><TierGate tabId="bode"><BodePlotTab /></TierGate></TabsContent>
+          <TabsContent value="ac"><UnavailableWorkflow id="ac" /></TabsContent>
+          <TabsContent value="laplace"><UnavailableWorkflow id="laplace" /></TabsContent>
+          <TabsContent value="fourier"><UnavailableWorkflow id="fourier" /></TabsContent>
+          <TabsContent value="bode"><UnavailableWorkflow id="bode" /></TabsContent>
           <TabsContent value="sage"><TierGate tabId="sage"><CircuitSagePanel onNavigateToTab={setActiveTab} /></TierGate></TabsContent>
-          <TabsContent value="homework"><TierGate tabId="homework"><CheckHomeworkTab /></TierGate></TabsContent>
+          <TabsContent value="homework"><UnavailableWorkflow id="homework" /></TabsContent>
           <TabsContent value="saved"><TierGate tabId="saved"><SavedProblemsTab /></TierGate></TabsContent>
-          <TabsContent value="exam"><TierGate tabId="exam"><PracticeExamTab /></TierGate></TabsContent>
+          <TabsContent value="exam"><UnavailableWorkflow id="exam" /></TabsContent>
           <TabsContent value="reference">
             <div className="p-6 rounded-lg bg-card border border-border space-y-6">
               <h3 className="text-lg font-bold text-foreground">Quick Reference — Circuit Formulas</h3>

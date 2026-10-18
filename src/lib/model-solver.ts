@@ -586,6 +586,17 @@ export function solveQuestion(model: CircuitModel, question: AnalysisRequest): S
       steps.push(
         `Verification: KCL holds at every node; sources deliver ${balance.delivered.toPrecision(6)} W, resistors dissipate ${balance.dissipated.toPrecision(6)} W, residual ${balance.residual.toExponential(2)} W.`,
       );
+      if (question.kind === 'power') {
+        if (question.target.type !== 'component') throw new UnsupportedProblemError('Power requires a component target.', 'Select a resistor for absorbed power.');
+        const c = model.components.find(c => c.id === question.target.ref);
+        if (!c || c.kind !== 'resistor') throw new UnsupportedProblemError('Power output is verified for resistors only.', 'Select a resistor.');
+        const voltage = dc.nodeVoltages[c.terminals[0]] - dc.nodeVoltages[c.terminals[1]];
+        const current = dc.branchCurrents[c.id];
+        const power = voltage * current;
+        if (!Number.isFinite(power)) throw new UnsupportedProblemError('Nonfinite power; answer withheld.', 'Check the component values.');
+        steps.push(`P(${c.id}) = V·I = ${voltage.toPrecision(6)} V × ${current.toPrecision(6)} A = ${power.toPrecision(6)} W (absorbed).`);
+        return { numeric: power, units: 'W', steps, assumptions };
+      }
       return readDC(dc, steps);
     }
 

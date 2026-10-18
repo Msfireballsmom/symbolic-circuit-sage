@@ -1,6 +1,7 @@
 // ============ PROBLEM TEXT PARSER ============
 // Extracts circuit components, analysis type, and parameters from plain text
 // Zero AI — pure regex + pattern matching for deterministic extraction
+import { parseQuantity } from './quantity';
 
 export interface ParsedComponent {
   type: 'resistor' | 'voltage_source' | 'current_source' | 'capacitor' | 'inductor' | 'opamp' | 'diode' | 'bjt' | 'mosfet' | 'dependent_voltage_source' | 'dependent_current_source' | 'transformer' | 'switch';
@@ -36,6 +37,8 @@ export interface ParsedProblem {
   rawText: string;
   confidence: number;      // 0-1 how confident the parse is
   warnings: string[];
+  outputNode?: number;
+  blockingReasons?: string[];
 }
 
 // SI prefixes are case-sensitive: M is mega, m is milli.
@@ -263,10 +266,13 @@ function extractFrequency(text: string): number | undefined {
 
 function extractInitials(text: string): { voltage?: number; current?: number } {
   const result: { voltage?: number; current?: number } = {};
-  const vMatch = text.match(/v[_c(]*0[⁺+)]*\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)/i);
-  if (vMatch) result.voltage = parseFloat(vMatch[1]);
-  const iMatch = text.match(/i[_l(]*0[⁺+)]*\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)/i);
-  if (iMatch) result.current = parseFloat(iMatch[1]);
+  for (const [symbol, unit, key] of [['v', 'V', 'voltage'], ['i', 'A', 'current']] as const) {
+    const match = text.match(new RegExp(`${symbol}[_cl(]*0[⁺+)]*\\s*[=:]\\s*([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*[kMmμuµn]?[VA]?)`, 'i'));
+    if (match) {
+      try { result[key] = parseQuantity(match[1].trim(), unit); }
+      catch { result[key] = NaN; }
+    }
+  }
   return result;
 }
 
@@ -286,6 +292,18 @@ function extractFindWhat(text: string): string[] {
 
 export function parseProblem(text: string): ParsedProblem {
   const warnings: string[] = [];
+  const blockingReasons: string[] = [];
+  // A malformed assignment must not disappear while the remaining circuit solves.
+  for (const match of text.matchAll(/\b([RCLVI](?:s|\d+)?)\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s*(?:(?!between\b|from\b|in\b|shared\b)[a-zA-ZμµΩω]+)?|[^\s,;]+)/gi)) {
+    const value = match[2].trim();
+    const units: Record<string, string> = { R: 'Ω', C: 'F', L: 'H', V: 'V', I: 'A' };
+    try {
+      const kind = match[1][0].toUpperCase();
+      const magnitude = parseQuantity(value, units[kind]);
+      if ((kind === 'R' && magnitude < 0) || (['C', 'L'].includes(kind) && magnitude <= 0)) throw new Error('Invalid passive value');
+    }
+    catch { blockingReasons.push(`${match[1]} has an invalid or dimensionally inconsistent assignment. Re-enter its value with units.`); }
+  }
   const components = extractComponents(text);
   const method = detectMethod(text, components);
   const topology = detectTopology(text);
@@ -334,6 +352,7 @@ export function parseProblem(text: string): ParsedProblem {
     rawText: text,
     confidence,
     warnings,
+    blockingReasons,
   };
 }
 
