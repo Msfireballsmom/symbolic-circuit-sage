@@ -23,7 +23,7 @@ const TransientTab = () => {
     if (field === 'type') {
       setInput({ ...input, type: val as 'RC' | 'RL' });
     } else {
-      setInput({ ...input, [field]: parseFloat(val) || 0 });
+      setInput({ ...input, [field]: val.trim() ? Number(val) : NaN });
     }
   };
 

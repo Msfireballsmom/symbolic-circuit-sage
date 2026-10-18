@@ -31,7 +31,7 @@ const DCAnalysisTab = () => {
     if (field === 'type') {
       updated[i] = { ...updated[i], type: val as DCComponent['type'] };
     } else {
-      updated[i] = { ...updated[i], [field]: Number(val) };
+      updated[i] = { ...updated[i], [field]: String(val).trim() ? Number(val) : NaN };
     }
     setComponents(updated);
   };

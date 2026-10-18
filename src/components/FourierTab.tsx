@@ -35,13 +35,14 @@ const FourierTab = () => {
     if (field === 'waveform') {
       setInput(prev => ({ ...prev, waveform: val as WaveformType }));
     } else {
-      setInput(prev => ({ ...prev, [field]: parseFloat(val) || 0 }));
+      setInput(prev => ({ ...prev, [field]: val.trim() ? Number(val) : NaN }));
     }
   };
 
   const solve = () => {
     try {
       setError('');
+      if (Object.values(input).some(v => typeof v === 'number' && !Number.isFinite(v))) throw new Error('All numeric fields must be finite.');
       if (input.period <= 0) throw new Error('Period must be positive');
       if (input.numHarmonics < 1) throw new Error('Need at least 1 harmonic');
       setResult(solveFourier(input));

@@ -92,13 +92,21 @@ function extractComponents(text: string): ParsedComponent[] {
   }
 
   // Voltage sources: "Vs = 12V", "V1 = 24V", "12V source", "voltage source of 12V"
+  const explicitSources = /\b([VI](?:s|\d+)?)\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kMmμuµn]?)\s*([VA])\b/gi;
+  while ((match = explicitSources.exec(normText)) !== null) {
+    const label = match[1], isVoltage = label[0].toUpperCase() === 'V';
+    if (match[4].toUpperCase() !== (isVoltage ? 'V' : 'A') || foundLabels.has(label)) continue;
+    foundLabels.add(label);
+    components.push({ type: isVoltage ? 'voltage_source' : 'current_source', label, value: parseValueWithUnit(match[2], match[3]) });
+  }
   const vPatterns = [
     /[Vv][sS₁₂₃]?\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmM]?)\s*[Vv]/g,
     /([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmM]?)\s*[Vv]\s*(?:source|supply|battery)/gi,
-    /(?:voltage|source|supply|battery)[^=]*?[=:of]*\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmM]?)\s*[Vv]?/gi,
+    /(?:voltage\s*source|supply|battery)\s*(?:of|[=:])?\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmM]?)\s*[Vv]\b/gi,
   ];
 
   for (const pat of vPatterns) {
+    if (components.some(c => c.type === 'voltage_source')) break;
     while ((match = pat.exec(normText)) !== null) {
       const vIdx = components.filter(c => c.type === 'voltage_source').length + 1;
       const label = `Vs${vIdx > 1 ? vIdx : ''}`;
@@ -117,6 +125,7 @@ function extractComponents(text: string): ParsedComponent[] {
   ];
 
   for (const pat of iPatterns) {
+    if (components.some(c => c.type === 'current_source')) break;
     while ((match = pat.exec(normText)) !== null) {
       const iIdx = components.filter(c => c.type === 'current_source').length + 1;
       const label = `Is${iIdx > 1 ? iIdx : ''}`;

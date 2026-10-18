@@ -5,8 +5,15 @@ import { buildCircuitModel } from '@/lib/parsed-to-model';
 import { requireIndependentAgreement } from '@/lib/independent-dc';
 import { solveQuestion } from '@/lib/model-solver';
 import { ExtractionSchema } from '@/lib/extraction-schema';
+import { parseProblem } from '@/lib/problem-parser';
 
 describe('Production verification guards', () => {
+  it('retains numbered source values and nodes instead of reading question node numbers as volts', () => {
+    const parsed = parseProblem('Use nodal analysis. V1 = 10V between node 1 and node 0. R1 = 3kΩ between node 1 and node 2. R2 = 7kΩ between node 2 and node 0. Find voltage at node 2 and currents.');
+    expect(parsed.components.find(c => c.type === 'voltage_source')).toMatchObject({ label: 'V1', value: 10, nodeA: 1, nodeB: 0 });
+    const model = buildCircuitModel(parsed).model;
+    expect(solveQuestion(model, { label: 'a', kind: 'solve', target: { type: 'node', ref: 'n2' }, deliverable: 'number', sourceText: '' }).numeric).toBeCloseTo(7, 10);
+  });
   it('preserves SI prefix case and converts units', () => {
     expect(parseQuantity('2MΩ', 'Ω')).toBe(2e6);
     expect(parseQuantity('2mA', 'A')).toBe(0.002);

@@ -34,7 +34,7 @@ const MeshAnalysisTab = () => {
     } else if (field === 'meshes') {
       updated[i] = { ...updated[i], meshes: val as number[] };
     } else if (field === 'value') {
-      updated[i] = { ...updated[i], value: Number(val) };
+      updated[i] = { ...updated[i], value: String(val).trim() ? Number(val) : NaN };
     } else if (field === 'label') {
       updated[i] = { ...updated[i], label: val as string };
     }
@@ -42,7 +42,7 @@ const MeshAnalysisTab = () => {
   };
 
   const parseMeshes = (str: string): number[] => {
-    return str.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n >= 1 && n <= numMeshes);
+    return str.split(',').map(s => /^\d+$/.test(s.trim()) ? Number(s.trim()) : NaN);
   };
 
   const solve = () => {
@@ -188,7 +188,7 @@ const MeshAnalysisTab = () => {
             <div className="mt-4 flex items-center gap-2 text-sm">
               <span className={`w-2 h-2 rounded-full ${result.powerBalance.balanced ? 'bg-success' : 'bg-warning'}`} />
               <span className={result.powerBalance.balanced ? 'text-success' : 'text-warning'}>
-                Power Balance: {result.powerBalance.balanced ? 'Verified ✓' : 'Imbalance Detected ⚠'}
+                Power Balance: {result.powerBalance.balanced ? 'KVL/power checks passed — full independent certification pending' : 'Imbalance Detected ⚠'}
               </span>
             </div>
           </div>
