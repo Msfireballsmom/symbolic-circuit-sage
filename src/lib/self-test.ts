@@ -329,11 +329,11 @@ export function getTestDefinitions(): TestDef[] {
       name: 'Fourier — Triangle Wave',
       category: 'Fourier',
       problem: 'Triangle wave A=1, T=0.01s, 10 harmonics',
-      expectedAnswer: 'Only odd cosine terms, a₁=8/π²≈0.8106',
+      expectedAnswer: 'Only odd cosine terms, a₁=−8/π²≈−0.8106 (waveform starts at −1)',
       run: () => {
         const r = solveFourier({ waveform: 'triangle', amplitude: 1, period: 0.01, dutyCycle: 0.5, numHarmonics: 10, dcOffset: 0 });
         const a1 = r.coefficients[0]?.an ?? NaN;
-        const a1Expected = 8 / (Math.PI * Math.PI);
+        const a1Expected = -8 / (Math.PI * Math.PI);
         const pass = approx(a1, a1Expected, 0.02);
         return { pass, actual: `a₁=${a1.toFixed(6)} (exp ${a1Expected.toFixed(6)})`, steps: r.steps };
       },

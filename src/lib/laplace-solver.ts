@@ -160,6 +160,11 @@ function findRoots(coeffs: number[]): Pole[] {
 
 export function solveLaplace(input: LaplaceInput): LaplaceResult {
   const { numerator, denominator, inputType } = input;
+  if (numerator.length === 0 || denominator.length < 2 ||
+      ![...numerator, ...denominator].every(Number.isFinite) || denominator[0] === 0 ||
+      numerator.length >= denominator.length) {
+    throw new Error('Unsupported or unverified: enter a finite strictly proper transfer function with a nonzero leading denominator.');
+  }
   const steps: string[] = [];
 
   steps.push(`═══════════════════════════════════════════`);
@@ -281,6 +286,13 @@ export function solveLaplace(input: LaplaceInput): LaplaceResult {
 
   // Compute partial fractions for distinct real poles
   const responsePoles = findRoots(responseDen);
+  if (responsePoles.some(p => !Number.isFinite(p.re) || !Number.isFinite(p.im))) {
+    throw new Error('Unsupported or unverified: this polynomial degree has no verified inverse-transform path.');
+  }
+  if (responsePoles.some((p, i) => responsePoles.some((other, j) => j !== i &&
+      Math.hypot(p.re - other.re, p.im - other.im) < 1e-10))) {
+    throw new Error('Unsupported or unverified: repeated-pole inverse Laplace transforms are coming soon; distinct-pole cover-up cannot be used.');
+  }
   const partialFractions: PartialFraction[] = [];
   
   const realPoles = responsePoles.filter(p => Math.abs(p.im) < 1e-10);
