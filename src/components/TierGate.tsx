@@ -16,7 +16,11 @@ const TierGate = ({ children, tabId }: TierGateProps) => {
   const { available: freeRunAvailable } = useFreeRun();
   const navigate = useNavigate();
 
-  // Guests and non-logged-in users see content (handled by auth page)
+  // Payments are not live yet: every solver is open to everyone until Stripe
+  // launches. Re-enable the checks below when billing goes live.
+  return <>{children}</>;
+
+  // eslint-disable-next-line no-unreachable
   if (!user) return <>{children}</>;
 
   const requiredTier = TAB_TIER_REQUIREMENTS[tabId];
