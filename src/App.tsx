@@ -34,7 +34,9 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AppRoutes = () => (
   <Routes>
-    <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
+    {/* Sign-in page is hidden until Stripe launches: /auth sends visitors straight to the app. */}
+    <Route path="/auth" element={<Navigate to="/" replace />} />
+    <Route path="/login" element={<AuthRoute><AuthPage /></AuthRoute>} />
     <Route path="/admin" element={<AdminPage />} />
     <Route path="/pricing" element={<PricingPage />} />
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
