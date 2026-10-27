@@ -20,11 +20,8 @@ const Index = () => {
 
   const userTier = subscription?.tier as TierKey | null;
 
-  const isLocked = (tabId: string) => {
-    const req = TAB_TIER_REQUIREMENTS[tabId];
-    if (!req) return false;
-    return !tierMeetsRequirement(userTier, req);
-  };
+  // Payments are not live yet: no tab shows a lock until Stripe launches.
+  const isLocked = (_tabId: string) => false;
 
   return (
     <div className="min-h-screen bg-background grid-bg">
