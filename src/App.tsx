@@ -13,14 +13,15 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Login is intentionally not required yet: the app is fully usable signed-out
+// until Stripe billing launches. Re-enable the redirect to /auth at that point.
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
   if (loading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-primary animate-pulse text-sm font-mono">Loading...</div>
     </div>
   );
-  if (!user) return <Navigate to="/auth" replace />;
   return <>{children}</>;
 };
 

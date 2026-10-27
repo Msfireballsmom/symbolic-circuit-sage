@@ -10,21 +10,13 @@ import TierGate from "@/components/TierGate";
 import TestModeBanner from "@/components/TestModeBanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, BarChart3, Bookmark, Trophy, Camera, Crown, BookCheck } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { TAB_TIER_REQUIREMENTS, tierMeetsRequirement, TierKey } from "@/lib/tier-config";
 import ET310Coverage from '@/components/ET310Coverage';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dc");
-  const { subscription } = useAuth();
 
-  const userTier = subscription?.tier as TierKey | null;
-
-  const isLocked = (tabId: string) => {
-    const req = TAB_TIER_REQUIREMENTS[tabId];
-    if (!req) return false;
-    return !tierMeetsRequirement(userTier, req);
-  };
+  // Payments are not live yet: no tab shows a lock until Stripe launches.
+  const isLocked = (_tabId: string) => false;
 
   return (
     <div className="min-h-screen bg-background grid-bg">
