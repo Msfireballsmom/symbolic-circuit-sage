@@ -11,6 +11,14 @@ import TestModeBanner from "@/components/TestModeBanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, BarChart3, Bookmark, Trophy, Camera, Crown, BookCheck } from "lucide-react";
 import ET310Coverage from '@/components/ET310Coverage';
+import ErrorBoundary from "@/components/ErrorBoundary";
+
+/** Each tab gets its own boundary and a reset key, so one broken panel cannot blank the app. */
+const Tab = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <ErrorBoundary label={label} resetKey={label}>
+    {children}
+  </ErrorBoundary>
+);
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dc");
@@ -117,21 +125,22 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="quick"><UnavailableWorkflow id="quick" /></TabsContent>
-          {import.meta.env.DEV && <TabsContent value="coverage"><ET310Coverage /></TabsContent>}
-          <TabsContent value="dc"><TierGate tabId="dc"><DCAnalysisTab /></TierGate></TabsContent>
-          <TabsContent value="mesh"><UnavailableWorkflow id="mesh" /></TabsContent>
-          <TabsContent value="transient"><TierGate tabId="transient"><TransientTab /></TierGate></TabsContent>
-          <TabsContent value="rlc"><TierGate tabId="rlc"><RLCTransientTab /></TierGate></TabsContent>
-          <TabsContent value="ac"><UnavailableWorkflow id="ac" /></TabsContent>
-          <TabsContent value="laplace"><UnavailableWorkflow id="laplace" /></TabsContent>
-          <TabsContent value="fourier"><UnavailableWorkflow id="fourier" /></TabsContent>
-          <TabsContent value="bode"><UnavailableWorkflow id="bode" /></TabsContent>
-          <TabsContent value="sage"><TierGate tabId="sage"><CircuitSagePanel onNavigateToTab={setActiveTab} /></TierGate></TabsContent>
-          <TabsContent value="homework"><UnavailableWorkflow id="homework" /></TabsContent>
-          <TabsContent value="saved"><TierGate tabId="saved"><SavedProblemsTab /></TierGate></TabsContent>
-          <TabsContent value="exam"><UnavailableWorkflow id="exam" /></TabsContent>
+          <TabsContent value="quick"><Tab label="Quick Solve"><UnavailableWorkflow id="quick" /></Tab></TabsContent>
+          {import.meta.env.DEV && <TabsContent value="coverage"><Tab label="ET310 Coverage"><ET310Coverage /></Tab></TabsContent>}
+          <TabsContent value="dc"><Tab label="DC Nodal"><TierGate tabId="dc"><DCAnalysisTab /></TierGate></Tab></TabsContent>
+          <TabsContent value="mesh"><Tab label="Mesh"><UnavailableWorkflow id="mesh" /></Tab></TabsContent>
+          <TabsContent value="transient"><Tab label="1st-Order Transient"><TierGate tabId="transient"><TransientTab /></TierGate></Tab></TabsContent>
+          <TabsContent value="rlc"><Tab label="2nd-Order RLC"><TierGate tabId="rlc"><RLCTransientTab /></TierGate></Tab></TabsContent>
+          <TabsContent value="ac"><Tab label="AC Phasor"><UnavailableWorkflow id="ac" /></Tab></TabsContent>
+          <TabsContent value="laplace"><Tab label="Laplace"><UnavailableWorkflow id="laplace" /></Tab></TabsContent>
+          <TabsContent value="fourier"><Tab label="Fourier"><UnavailableWorkflow id="fourier" /></Tab></TabsContent>
+          <TabsContent value="bode"><Tab label="Bode Plot"><UnavailableWorkflow id="bode" /></Tab></TabsContent>
+          <TabsContent value="sage"><Tab label="Snap & Solve"><TierGate tabId="sage"><CircuitSagePanel onNavigateToTab={setActiveTab} /></TierGate></Tab></TabsContent>
+          <TabsContent value="homework"><Tab label="Check Homework"><UnavailableWorkflow id="homework" /></Tab></TabsContent>
+          <TabsContent value="saved"><Tab label="Saved"><TierGate tabId="saved"><SavedProblemsTab /></TierGate></Tab></TabsContent>
+          <TabsContent value="exam"><Tab label="Practice Exam"><UnavailableWorkflow id="exam" /></Tab></TabsContent>
           <TabsContent value="reference">
+            <Tab label="Reference">
             <div className="p-6 rounded-lg bg-card border border-border space-y-6">
               <h3 className="text-lg font-bold text-foreground">Quick Reference — Circuit Formulas</h3>
               <div className="grid sm:grid-cols-2 gap-6">
@@ -200,6 +209,7 @@ const Index = () => {
                 </div>
               </div>
             </div>
+            </Tab>
           </TabsContent>
         </Tabs>
       </main>
