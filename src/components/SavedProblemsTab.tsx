@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bookmark, Trash2, Search, Clock, Tag, FolderOpen } from "lucide-react";
+import { useToast } from '@/components/ui/use-toast';
 
 interface SavedProblem {
   id: string;
@@ -18,6 +19,7 @@ interface SavedProblem {
 const STORAGE_KEY = 'circuit-solver-saved-problems';
 
 const SavedProblemsTab = () => {
+  const { toast } = useToast();
   const [problems, setProblems] = useState<SavedProblem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -36,8 +38,18 @@ const SavedProblemsTab = () => {
   }, []);
 
   const saveProblems = (updated: SavedProblem[]) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (error) {
+      toast({
+        title: 'Could not save to this browser',
+        description: 'Browser storage is full or blocked, so this change was not stored. Free some space or exit private browsing and try again.',
+        variant: 'destructive',
+      });
+      console.error('[Circuit Sage] saved problems could not be written:', error);
+      return; // keep the in-memory list unchanged so the UI never claims a save that did not happen
+    }
     setProblems(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   };
 
   const addProblem = () => {
