@@ -11,3 +11,8 @@
 - Export verification defaults to unverified and is explicitly passed only by a checked result; escaped user content prevents executable export HTML.
 - Visible unverified workflows are replaced by the central availability policy with no numerical or grading actions; server integrations stay disabled until authenticated end-to-end evidence exists.
 - Confirmed network equivalents require an explicit output node; transient targets follow the storage element, and power requests return watts rather than branch current.
+
+## Server-managed columns
+- subscription_tier and stripe_customer_id on public.profiles are server-managed — clients hold no grant on these columns and a BEFORE UPDATE trigger rejects client changes; set them only from a service-role path (the Stripe webhook once billing is live).
+- daily_solves.solve_count is incremented only through public.increment_daily_solve(); there is no client UPDATE grant.
+- guest_solves has no client access and no operational code references it; its only code mention is the generated type declaration.
