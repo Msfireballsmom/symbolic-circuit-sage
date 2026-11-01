@@ -70,7 +70,7 @@ const VerifiedSolution = ({ parsed, onSolved }: { parsed: ParsedProblem; onSolve
   const allVerified = answerGuard.ok && answers.length > 0 && answers.every(answer => answer.result) && verification?.ok === true;
   useEffect(() => { if (allVerified) onSolved?.(); }, [allVerified, onSolved]);
 
-  if (!answerGuard.ok) {
+  if (answerGuard.ok === false) {
     return (
       <Card className="border-warning/30">
         <CardHeader className="p-4 pb-2">
