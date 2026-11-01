@@ -1,6 +1,7 @@
 # Engineering rules
 - ET310 coverage uses a shared original parameterized case corpus for automated tests and live developer checks, so course certification reflects the same numerical evidence rather than a static label.
 - RLC verification separates physical KCL/KVL/continuity residuals from finite-time settling; reject physical failures and withhold Verified status when endpoint residuals fail.
+- RLC automatic horizons live in a pure settling module and must pass the unchanged solver audit; physically valid short runs show only waveforms/residuals with an audited extension action.
 - Parallel voltage-step RLC is rejected until the source connection is explicitly modeled, because the previous finite-current assumption contradicted ideal-source physics.
 - Run the entire automated suite after changes; production compilation is managed by the Lovable harness, and its latest build log must be checked before completion.
 - Verify canonical DC with a separately implemented branch tableau, then KCL and power residuals; independent formulations catch stamping errors without trusting solver labels.

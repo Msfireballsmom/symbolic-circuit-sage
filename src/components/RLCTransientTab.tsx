@@ -1,30 +1,31 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { solveRLC, RLCInput, RLCResult } from "@/lib/circuit-solver";
+import { defaultRLCInput, suggestRLCFinalTime } from "@/lib/rlc-settling";
 import StepDisplay from "./StepDisplay";
 import { Play, Waves } from "lucide-react";
 
 const RLCTransientTab = () => {
-  const [input, setInput] = useState<RLCInput>({
-    topology: 'series',
-    R: 200,
-    L: 0.05,
-    C: 0.0002,
-    Vs: 10,
-    excitation: 'step',
-    vC0: 0,
-    iL0: 0,
-    tFinal: 0.05,
-  });
+  const [input, setInput] = useState<RLCInput>(defaultRLCInput);
   const [atRest, setAtRest] = useState(true);
+  const [autoFinalTime, setAutoFinalTime] = useState(true);
   const [showVC, setShowVC] = useState(true);
   const [showIL, setShowIL] = useState(true);
   const [result, setResult] = useState<RLCResult | null>(null);
   const [error, setError] = useState('');
+
+  const suggestion = useMemo(() => {
+    try {
+      return { time: suggestRLCFinalTime({ ...input, vC0: atRest ? 0 : input.vC0, iL0: atRest ? 0 : input.iL0 }), error: '' };
+    } catch (e: unknown) {
+      return { time: undefined, error: e instanceof Error ? e.message : 'Cannot suggest t_final.' };
+    }
+  }, [input.R, input.L, input.C, input.topology, input.excitation, input.Vs, input.vC0, input.iL0, atRest]);
+  const finalTime = autoFinalTime ? suggestion.time : input.tFinal;
 
   const update = (field: keyof RLCInput, val: string) => {
     setResult(null);
@@ -35,12 +36,14 @@ const RLCTransientTab = () => {
     }
   };
 
-  const solve = () => {
+  const solve = (extendedTime?: number) => {
     try {
       setError('');
-      const inp = atRest ? { ...input, vC0: 0, iL0: 0 } : input;
+      const time = extendedTime ?? finalTime;
+      if (time === undefined) throw new Error(suggestion.error);
+      const inp = { ...input, tFinal: time, ...(atRest ? { vC0: 0, iL0: 0 } : {}) };
       const solved = solveRLC(inp);
-      if (!solved.verification.ok) throw new Error('Unverified: physical or steady-state endpoint residuals did not pass. Results and exports are withheld; increase t_final or check the circuit.');
+      if (!solved.verification.physicalOk) throw new Error('Physical residuals did not pass. Answer withheld.');
       setResult(solved);
     } catch (e: any) {
       setError(e.message);
@@ -51,8 +54,8 @@ const RLCTransientTab = () => {
   const renderChart = () => {
     if (!result) return null;
     const datasets: { points: { t: number; value: number }[]; label: string; color: string }[] = [];
-    if (showVC) datasets.push({ points: result.pointsVC, label: 'v_C(t)', color: 'stroke-primary' });
-    if (showIL) datasets.push({ points: result.pointsIL, label: 'i_L(t)', color: 'stroke-accent' });
+    if (showVC) datasets.push({ points: result.pointsVC, label: 'v_C(t) (V)', color: 'stroke-primary' });
+    if (showIL) datasets.push({ points: result.pointsIL, label: 'i_L(t) (A)', color: 'stroke-accent' });
     if (datasets.length === 0) return null;
 
     const allVals = datasets.flatMap(d => d.points.map(p => p.value));
@@ -66,7 +69,7 @@ const RLCTransientTab = () => {
     const toY = (v: number) => H - pad - ((v - minV) / range) * (H - 2 * pad);
 
     return (
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-2xl" preserveAspectRatio="xMidYMid meet">
+      <svg role="img" aria-label="Capacitor voltage and inductor current waveforms" viewBox={`0 0 ${W} ${H}`} className="w-full max-w-2xl" preserveAspectRatio="xMidYMid meet">
         {[0, 0.25, 0.5, 0.75, 1].map(frac => (
           <line key={frac} x1={pad} x2={W - pad} y1={pad + frac * (H - 2 * pad)} y2={pad + frac * (H - 2 * pad)} className="stroke-border" strokeWidth="0.5" />
         ))}
@@ -179,12 +182,22 @@ const RLCTransientTab = () => {
 
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div>
-            <Label className="text-xs text-muted-foreground">t_final (s)</Label>
-            <Input type="number" value={input.tFinal} onChange={e => update('tFinal', e.target.value)} className="h-8 text-xs font-mono" step="any" />
+            <Label htmlFor="rlc-final-time" className="text-xs text-muted-foreground">t_final (s)</Label>
+            <Input id="rlc-final-time" type="number" value={finalTime ?? ''} disabled={autoFinalTime} onChange={e => update('tFinal', e.target.value)} className="h-8 text-xs font-mono" step="any" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch id="rlc-auto-final-time" checked={autoFinalTime} onCheckedChange={value => {
+              if (!value && suggestion.time !== undefined) setInput(prev => ({ ...prev, tFinal: suggestion.time ?? prev.tFinal }));
+              setAutoFinalTime(value);
+              setResult(null);
+              setError('');
+            }} />
+            <Label htmlFor="rlc-auto-final-time" className="text-xs text-muted-foreground">Auto t_final</Label>
           </div>
         </div>
+        {autoFinalTime && suggestion.error && <p className="mt-2 text-sm text-destructive">{suggestion.error}</p>}
 
-        <Button onClick={solve} className="mt-4 gap-2 w-full sm:w-auto">
+        <Button onClick={() => solve()} className="mt-4 gap-2 w-full sm:w-auto">
           <Play className="w-4 h-4" /> Solve 2nd-Order RLC
         </Button>
       </div>
@@ -195,7 +208,31 @@ const RLCTransientTab = () => {
         </div>
       )}
 
-      {result && (
+      {result && !result.verification.ok && result.verification.physicalOk && !result.verification.settled && (
+        <div className="space-y-4" aria-label="Unsettled endpoint">
+          <p role="status" className="text-warning text-sm">
+            The endpoint has not settled at t_final = {result.pointsVC[result.pointsVC.length - 1].t} s.
+            The last plotted sample is not the final value. The certified answer is withheld.
+          </p>
+          {renderChart()}
+          <div className="text-sm font-mono space-y-1">
+            {result.verification.endpoint.map(check => (
+              <p key={check.name}>{check.name}: residual {check.residual.toExponential(6)} {check.unit} (tolerance {(1e-6 * Math.max(1e-12, Math.abs(check.scale))).toExponential(2)} {check.unit})</p>
+            ))}
+          </div>
+          {suggestion.time !== undefined ? (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">The endpoint audit passes with t_final = {suggestion.time} s.</p>
+              <Button onClick={() => {
+                setInput(prev => ({ ...prev, tFinal: suggestion.time ?? prev.tFinal }));
+                solve(suggestion.time);
+              }}>Extend t_final to {suggestion.time} s and re-solve</Button>
+            </div>
+          ) : <p className="text-sm text-destructive">{suggestion.error}</p>}
+        </div>
+      )}
+
+      {result?.verification.ok && (
         <div className="space-y-4 animate-slide-up">
           <p role="status" className={result.verification.ok ? 'text-success text-sm' : 'text-warning text-sm'}>
             {result.verification.ok
