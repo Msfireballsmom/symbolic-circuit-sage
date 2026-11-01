@@ -120,7 +120,7 @@ function extractComponents(text: string): ParsedComponent[] {
     const label = match[1], isVoltage = label[0].toUpperCase() === 'V';
     if (match[4].toUpperCase() !== (isVoltage ? 'V' : 'A') || foundLabels.has(label)) continue;
     foundLabels.add(label);
-    components.push({ type: isVoltage ? 'voltage_source' : 'current_source', label, value: parseValueWithUnit(match[2], match[3]) });
+    components.push({ type: isVoltage ? 'voltage_source' : 'current_source', label, value: parseValueWithUnit(match[2], match[3]), nodeA: 1, nodeB: 0 });
   }
   const vPatterns = [
     /[Vv][sS₁₂₃]?\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmM]?)\s*[Vv]/g,
