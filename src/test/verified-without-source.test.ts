@@ -34,12 +34,54 @@ describe('Answerability outside the certified engine', () => {
     const parsed = parseProblem(examples[2]);
     const { model } = buildCircuitModel(parsed);
     expect(model.components.map(c => c.value.magnitude)).toEqual([100, 200, 300]);
-    expect(guardAnswer(model.components, model.questions, parsed.findWhat)).toMatchObject({ ok: false, code: 'SOURCELESS_OPERATING_POINT' });
+    expect(guardAnswer(model.components, model.questions, parsed.findWhat)).toMatchObject({ ok: false, code: 'RESISTANCE_NOT_COMPUTED' });
     withRenderedAnswer(parsed, (container, onSolved) => {
       expect(container.textContent).not.toContain('Verified solution');
       expect(container.textContent).toContain('Answer withheld — cannot be answered from this netlist');
       expect(container.textContent).toContain('Equivalent resistance is not computed by the verified engine yet.');
       expect(onSolved).not.toHaveBeenCalled();
+    });
+  });
+
+  it('refuses resistance-only questions even with a voltage source, without completing a solve', () => {
+    const parsed = { ...parseProblem(examples[1]), findWhat: ['resistance'] };
+    const { model } = buildCircuitModel(parsed);
+    expect(model.components.some(c => c.kind === 'vsource')).toBe(true);
+    expect(guardAnswer(model.components, model.questions, parsed.findWhat)).toEqual({
+      ok: false,
+      code: 'RESISTANCE_NOT_COMPUTED',
+      message: 'Equivalent resistance is not computed by the verified engine yet. Verified node voltages would be answers to a different question than the one asked.',
+      remedy: 'The two measurement terminals must be explicitly stated and confirmed; they cannot be guessed from draft node numbers.',
+    });
+    withRenderedAnswer(parsed, (container, onSolved) => {
+      expect(container.textContent).not.toContain('Verified solution');
+      expect(container.querySelector('[role="alert"]')?.textContent).toContain('Equivalent resistance is not computed');
+      expect(onSolved).not.toHaveBeenCalled();
+    });
+  });
+
+  it('still allows and solves sourced compound resistance and voltage questions', () => {
+    const parsed = { ...parseProblem(examples[1]), findWhat: ['resistance', 'voltage'] };
+    const { model } = buildCircuitModel(parsed);
+    expect(guardAnswer(model.components, model.questions, parsed.findWhat)).toEqual({ ok: true });
+    const question = model.questions.find(q => q.target.ref === 'n2');
+    if (!question) throw new Error('Expected node n2 question');
+    expect(solveQuestion(model, question).numeric).toBe(8);
+    withRenderedAnswer(parsed, (container, onSolved) => {
+      expect(container.textContent).toContain('Verified solution');
+      expect(container.textContent).toContain('8.00000 V');
+      expect(onSolved).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('still allows sourced all questions', () => {
+    const parsed = { ...parseProblem(examples[1]), findWhat: ['all'] };
+    const { model } = buildCircuitModel(parsed);
+    expect(guardAnswer(model.components, model.questions, parsed.findWhat)).toEqual({ ok: true });
+    withRenderedAnswer(parsed, (container, onSolved) => {
+      expect(container.textContent).toContain('Verified solution');
+      expect(container.textContent).toContain('8.00000 V');
+      expect(onSolved).toHaveBeenCalledTimes(1);
     });
   });
 
