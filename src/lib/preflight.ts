@@ -24,6 +24,7 @@ export type IssueCode =
   | "ambiguous-dot-convention"
   | "voltage-source-loop"
   | "current-source-cut-set"
+  | "floating-node"
   // Warning
   | "low-confidence-exists"
   | "low-confidence-value"
@@ -283,6 +284,46 @@ export function preflight(model: CircuitModel): PreflightResult {
         refs: [n.id, ...incident.map(c => c.id)],
         message: `Node ${n.id} is fed only by current sources and they don't sum to zero.`,
         fix: `Adjust one of the source values or add a resistive path.`,
+      });
+    }
+  }
+
+  // --- floating nodes ---
+  // A node with no direct-current path to ground leaves its voltage undetermined
+  // and makes the nodal matrix singular. Name the node, so the answer can say
+  // which one floats instead of "the equations are singular". Capacitors are open
+  // at DC and an infinite resistor is an open, so neither connects anything.
+  // Only run this when nothing else already blocks, so the message stays precise.
+  if (blocking.length === 0) {
+    const groundId = groundNodes[0]?.id ?? refNode;
+    const adjacency = new Map<string, string[]>();
+    const link = (a: string, b: string) => {
+      if (!nodeById.has(a) || !nodeById.has(b)) return;
+      adjacency.set(a, [...(adjacency.get(a) ?? []), b]);
+      adjacency.set(b, [...(adjacency.get(b) ?? []), a]);
+    };
+    for (const c of model.components) {
+      if (c.kind === "ground" || c.terminals.length !== 2) continue;
+      if (c.kind === "capacitor") continue;
+      if (c.kind === "resistor" && c.value.magnitude === Infinity) continue;
+      link(c.terminals[0], c.terminals[1]);
+    }
+    const reachable = new Set<string>([groundId]);
+    const queue = [groundId];
+    while (queue.length > 0) {
+      const here = queue.shift() as string;
+      for (const next of adjacency.get(here) ?? []) {
+        if (!reachable.has(next)) { reachable.add(next); queue.push(next); }
+      }
+    }
+    for (const node of model.nodes) {
+      if (node.isGround || node.id === groundId || reachable.has(node.id)) continue;
+      blocking.push({
+        code: "floating-node",
+        severity: "blocking",
+        refs: [node.id],
+        message: `Node ${node.id} has no direct-current path to ground — it floats, so its voltage is undetermined.`,
+        fix: `Connect ${node.id} to the rest of the circuit, or pick a node that is actually grounded as the reference.`,
       });
     }
   }

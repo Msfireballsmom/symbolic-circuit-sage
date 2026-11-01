@@ -39,15 +39,23 @@ export function gauss(A: number[][], b: number[]): number[] {
   const n = b.length;
   if (n === 0) return [];
   const M = A.map((row, i) => [...row, b[i]]);
-  const scale = Math.max(1, ...M.flat().map((v) => Math.abs(v)));
-
+  // Row-equilibrate before elimination: divide each row by its own largest
+  // coefficient, so siemens in A and volts in b never share one pivot threshold.
+  // Scaling a row by a positive constant leaves the solution unchanged, and this
+  // matches the row normalization the independent branch tableau already does.
+  for (let r = 0; r < n; r++) {
+    let rowScale = 0;
+    for (let c = 0; c < n; c++) rowScale = Math.max(rowScale, Math.abs(M[r][c]));
+    if (!(rowScale > 0)) continue; // all-zero coefficient row: reported as singular below
+    for (let c = 0; c <= n; c++) M[r][c] /= rowScale;
+  }
 
   for (let col = 0; col < n; col++) {
     let pivot = col;
     for (let r = col + 1; r < n; r++) {
       if (Math.abs(M[r][col]) > Math.abs(M[pivot][col])) pivot = r;
     }
-    if (Math.abs(M[pivot][col]) < 1e-12 * scale) {
+    if (Math.abs(M[pivot][col]) < 1e-12) {
       throw new UnsupportedProblemError(
         "The circuit equations are singular — the solution is not unique.",
         "Check for a missing ground reference, a floating node, or two ideal voltage sources connected in parallel.",

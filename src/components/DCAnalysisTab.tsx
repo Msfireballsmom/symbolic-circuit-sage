@@ -9,34 +9,36 @@ import MatrixDisplay from "./MatrixDisplay";
 import { NodeVoltageGraph } from "./ResultGraph";
 import { Plus, Trash2, Play, Zap } from "lucide-react";
 
+type EditableComponent = DCComponent & { id: string };
+let nextRowId = 1;
+const withRowId = (c: Omit<DCComponent, 'id'>): EditableComponent => ({ ...c, id: `row-${nextRowId++}` });
+
 const DCAnalysisTab = () => {
-  const [components, setComponents] = useState<DCComponent[]>([
-    { type: 'voltage_source', value: 12, nodeA: 1, nodeB: 0 },
-    { type: 'resistor', value: 1000, nodeA: 1, nodeB: 2 },
-    { type: 'resistor', value: 2000, nodeA: 2, nodeB: 0 },
+  const [components, setComponents] = useState<EditableComponent[]>([
+    withRowId({ type: 'voltage_source', value: 12, nodeA: 1, nodeB: 0 }),
+    withRowId({ type: 'resistor', value: 1000, nodeA: 1, nodeB: 2 }),
+    withRowId({ type: 'resistor', value: 2000, nodeA: 2, nodeB: 0 }),
   ]);
   const [result, setResult] = useState<DCResult | null>(null);
   const [error, setError] = useState('');
 
   const addComponent = () => {
     setResult(null);
-    setComponents([...components, { type: 'resistor', value: 1000, nodeA: 1, nodeB: 0 }]);
+    setComponents([...components, withRowId({ type: 'resistor', value: 1000, nodeA: 1, nodeB: 0 })]);
   };
 
-  const removeComponent = (i: number) => {
+  const removeComponent = (id: string) => {
     setResult(null);
-    setComponents(components.filter((_, idx) => idx !== i));
+    setComponents(components.filter((c) => c.id !== id));
   };
 
-  const updateComponent = (i: number, field: keyof DCComponent, val: string | number) => {
+  const updateComponent = (id: string, field: 'type' | 'value' | 'nodeA' | 'nodeB', val: string | number) => {
     setResult(null);
-    const updated = [...components];
-    if (field === 'type') {
-      updated[i] = { ...updated[i], type: val as DCComponent['type'] };
-    } else {
-      updated[i] = { ...updated[i], [field]: String(val).trim() ? Number(val) : NaN };
-    }
-    setComponents(updated);
+    setComponents(components.map((c) => {
+      if (c.id !== id) return c;
+      if (field === 'type') return { ...c, type: val as DCComponent['type'] };
+      return { ...c, [field]: String(val).trim() ? Number(val) : NaN };
+    }));
   };
 
   const solve = () => {
@@ -64,11 +66,11 @@ const DCAnalysisTab = () => {
         </div>
 
         <div className="space-y-3">
-          {components.map((comp, i) => (
-            <div key={i} className="flex flex-wrap items-end gap-2 p-3 rounded-md bg-muted/50 border border-border">
+          {components.map((comp) => (
+            <div key={comp.id} className="flex flex-wrap items-end gap-2 p-3 rounded-md bg-muted/50 border border-border">
               <div className="w-36">
                 <Label className="text-xs text-muted-foreground">Type</Label>
-                <Select value={comp.type} onValueChange={(v) => updateComponent(i, 'type', v)}>
+                <Select value={comp.type} onValueChange={(v) => updateComponent(comp.id, 'type', v)}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="resistor">Resistor (Ω)</SelectItem>
@@ -79,17 +81,17 @@ const DCAnalysisTab = () => {
               </div>
               <div className="w-24">
                 <Label className="text-xs text-muted-foreground">Value</Label>
-                <Input type="number" value={comp.value} onChange={e => updateComponent(i, 'value', e.target.value)} className="h-8 text-xs font-mono" />
+                <Input type="number" value={Number.isFinite(comp.value) ? comp.value : ''} onChange={e => updateComponent(comp.id, 'value', e.target.value)} className="h-8 text-xs font-mono" />
               </div>
               <div className="w-16">
                 <Label className="text-xs text-muted-foreground">Node+</Label>
-                <Input type="number" min={0} value={comp.nodeA} onChange={e => updateComponent(i, 'nodeA', e.target.value)} className="h-8 text-xs font-mono" />
+                <Input type="number" min={0} value={Number.isFinite(comp.nodeA) ? comp.nodeA : ''} onChange={e => updateComponent(comp.id, 'nodeA', e.target.value)} className="h-8 text-xs font-mono" />
               </div>
               <div className="w-16">
                 <Label className="text-xs text-muted-foreground">Node−</Label>
-                <Input type="number" min={0} value={comp.nodeB} onChange={e => updateComponent(i, 'nodeB', e.target.value)} className="h-8 text-xs font-mono" />
+                <Input type="number" min={0} value={Number.isFinite(comp.nodeB) ? comp.nodeB : ''} onChange={e => updateComponent(comp.id, 'nodeB', e.target.value)} className="h-8 text-xs font-mono" />
               </div>
-              <Button variant="ghost" size="sm" onClick={() => removeComponent(i)} className="h-8 w-8 p-0 text-destructive/70 hover:text-destructive">
+              <Button variant="ghost" size="sm" onClick={() => removeComponent(comp.id)} className="h-8 w-8 p-0 text-destructive/70 hover:text-destructive">
                 <Trash2 className="w-3.5 h-3.5" />
               </Button>
             </div>
