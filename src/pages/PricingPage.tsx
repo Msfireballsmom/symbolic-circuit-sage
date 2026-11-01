@@ -7,6 +7,17 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 
+export const COMPARISON_ROWS = [
+  ["DC nodal analysis", false, true, true, false],
+  ["First-order RC/RL transients", false, true, true, false],
+  ["Second-order RLC", false, true, true, false],
+  ["Step-by-step solutions", true, true, true, false],
+  ["Snap & Solve — confirmed text only", false, false, true, false],
+  ["PDF export — full step-by-step derivation", false, false, true, false],
+  ["Browser-local saved problems", false, true, true, false],
+  ["Reference sheet", true, true, true, true],
+];
+
 const tierIcons: Record<TierKey, React.ReactNode> = {
   basic: <Zap className="w-5 h-5" />,
   student: <Sparkles className="w-5 h-5" />,
@@ -181,16 +192,7 @@ const PricingPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {[
-                  ["DC nodal analysis", false, true, true, false],
-                  ["First-order RC/RL transients", false, true, true, false],
-                  ["Second-order RLC", false, true, true, false],
-                  ["Step-by-step solutions", true, true, true, false],
-                  ["Snap & Solve — confirmed text only", false, false, true, false],
-                  ["PDF export — full step-by-step derivation", false, false, true, false],
-                  ["Browser-local saved problems", false, true, true, false],
-                  ["Reference sheet", true, false, false, false],
-                ].map(([feature, ...values], i) => (
+                {COMPARISON_ROWS.map(([feature, ...values], i) => (
                   <tr key={i} className="border-b border-border/50 hover:bg-card/50">
                     <td className="p-3 text-foreground">{feature}</td>
                     {values.map((val, j) => (

@@ -7,7 +7,7 @@ export const WORKFLOW_AVAILABILITY = {
   bode: { enabled: false, reason: 'Frequency-response plots and results lack independent verification.' },
   homework: { enabled: false, reason: 'The reference calculator and grading tolerance are not independently validated. No correctness score or answer key is available.' },
   exam: { enabled: false, reason: 'Exam correctness and answer keys are not independently validated. Attempts must not be counted as correct answers.' },
-  photo: { enabled: false, reason: 'Authenticated image extraction has not been tested end-to-end. A real signed-in account and non-private circuit test image are required.' },
+  photo: { enabled: false, reason: 'Photo and PDF extraction are not implemented. The upload control is disabled; paste the problem text or upload a .txt file instead. Nothing is extracted from an image.' },
   generation: { enabled: false, reason: 'Authenticated administrator generation and independent answer grading have not been validated end-to-end.' },
   history: { enabled: false, reason: 'Administrator report persistence and readback have not been validated with a real administrator account.' },
   dc: { enabled: true, reason: 'Independent branch equations, KCL and power checks are required before displaying results.' },
