@@ -129,6 +129,30 @@ describe('Answerability outside the certified engine', () => {
 
   it('audits exactly ten shipped examples', () => expect(examples).toHaveLength(10));
 
+  it('keeps Example 6 voltage and current and appends verified resistor power', () => {
+    const parsed = parseProblem(examples[5]);
+    expect(parsed.findWhat).toEqual(['current', 'power']);
+    const { model } = buildCircuitModel(parsed);
+    expect(model.questions.map(q => ({ label: q.label, kind: q.kind, target: q.target }))).toEqual([
+      { label: 'a', kind: 'solve', target: { type: 'node', ref: 'n1' } },
+      { label: 'b', kind: 'solve', target: { type: 'component', ref: 'R1' } },
+      { label: 'c', kind: 'power', target: { type: 'component', ref: 'R1' } },
+    ]);
+    expect(solveQuestion(model, model.questions[0]).numeric).toBe(24);
+    expect(solveQuestion(model, model.questions[1]).numeric).toBe(24 / 4700);
+    const power = solveQuestion(model, model.questions[2]);
+    expect(power.numeric).toBeCloseTo(0.1225531914893617, 12);
+    expect(power.units).toBe('W');
+    expect(power.steps.some(step => step.includes('cross-check V²/R') && step.includes('the two agree to 1e-9'))).toBe(true);
+    withRenderedAnswer(parsed, (container, onSolved) => {
+      expect(container.textContent).toContain('Verified solution');
+      expect(container.textContent).toContain('0.122553 W');
+      expect(container.textContent).toContain('24.0000 V');
+      expect(container.textContent).toContain('0.00510638 A');
+      expect(onSolved).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it.each(examples.map((text, index) => ({ text, index })))('example $index cannot certify an all-zero substitute answer', ({ text, index }) => {
     const parsed = parseProblem(text);
     expect(parsed.method).toBe(methods[index]);
