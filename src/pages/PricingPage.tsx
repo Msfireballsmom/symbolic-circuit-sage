@@ -87,7 +87,7 @@ const PricingPage = () => {
             Choose Your <span className="text-primary">Plan</span>
           </h1>
           <p className="text-muted-foreground max-w-lg mx-auto">
-            Unlock the full power of Circuit Sage. Cancel anytime.
+            These plans are not on sale yet; every working solver is currently free to use without an account.
           </p>
         </div>
 
@@ -182,20 +182,14 @@ const PricingPage = () => {
               </thead>
               <tbody>
                 {[
-                  ["Daily solves", "5/day", "Unlimited", "Unlimited", "Unlimited"],
-                  ["Quick Solver", true, true, true, true],
-                  ["DC Analysis", false, true, true, true],
-                  ["Mesh/Nodal Analysis", false, true, true, true],
-                  ["AC Phasor Analysis", false, true, true, true],
-                  ["Practice Exams", false, true, true, true],
-                  ["Laplace/Fourier", false, false, true, true],
-                  ["Bode Plot", false, false, true, true],
-                  ["Snap & Solve", false, false, true, true],
-                  ["PDF Export", false, false, true, true],
-                  ["Check My Homework", false, false, true, true],
-                  ["Save Problems", false, true, true, true],
-                  ["Team Seats", "1", "1", "1", "10"],
-                  ["Priority Support", false, false, false, true],
+                  ["DC nodal analysis", false, true, true, false],
+                  ["First-order RC/RL transients", false, true, true, false],
+                  ["Second-order RLC", false, true, true, false],
+                  ["Step-by-step solutions", true, true, true, false],
+                  ["Snap & Solve — confirmed text only", false, false, true, false],
+                  ["PDF export — full step-by-step derivation", false, false, true, false],
+                  ["Browser-local saved problems", false, true, true, false],
+                  ["Reference sheet", true, false, false, false],
                 ].map(([feature, ...values], i) => (
                   <tr key={i} className="border-b border-border/50 hover:bg-card/50">
                     <td className="p-3 text-foreground">{feature}</td>
@@ -219,7 +213,7 @@ const PricingPage = () => {
 
         {/* Guest note */}
         <div className="text-center mt-8 text-xs text-muted-foreground">
-          Not ready to commit? Try <strong>1 free solve</strong> without signing up.
+          The free-run record tracks one completed run per calendar month in this browser; it does not limit current free access.
         </div>
       </div>
     </div>
