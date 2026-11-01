@@ -122,29 +122,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const incrementSolve = useCallback(async (): Promise<boolean> => {
     if (!user) return false;
-    const today = new Date().toISOString().split("T")[0];
-    // Upsert: insert or increment
-    const { data: existing } = await supabase
-      .from("daily_solves")
-      .select("id, solve_count")
-      .eq("user_id", user.id)
-      .eq("solve_date", today)
-      .maybeSingle();
-
-    if (existing) {
-      const { error } = await supabase
-        .from("daily_solves")
-        .update({ solve_count: existing.solve_count + 1, updated_at: new Date().toISOString() })
-        .eq("id", existing.id);
-      if (error) return false;
-      setDailySolves(existing.solve_count + 1);
-    } else {
-      const { error } = await supabase
-        .from("daily_solves")
-        .insert({ user_id: user.id, solve_date: today, solve_count: 1 });
-      if (error) return false;
-      setDailySolves(1);
-    }
+    const { data, error } = await supabase.rpc('increment_daily_solve');
+    if (error) return false;
+    if (typeof data === 'number') setDailySolves(data);
     return true;
   }, [user]);
 
