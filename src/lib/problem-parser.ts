@@ -71,16 +71,36 @@ function extractComponents(text: string): ParsedComponent[] {
   });
 
   // Extract R values: "R1 = 4kΩ" style
-  const rAssign = /[Rr](\d*)\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMμuUnNpP]?)\s*(?:Ω|ohm|ohms|ω)?/g;
+  // Resistor assignments. A numbered label (R1, R2 …) is anchored so it can never
+  // start mid-word: the trailing "r" of "Ir = 5mA" is not a resistor label. The
+  // unit is optional only when the label carries a number suffix; an unnumbered
+  // "R =" must end in a resistance unit, so "R = 5mA" is not a resistor.
+  const rNumbered = /(?<![\w])[Rr](\d+)\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMμuUnNpP]?)\s*(?:Ω|ohms?|ω)?/g;
+  const rBare = /(?<![\w])[Rr]\s*[=:]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([kKmMμuUnNpP]?)\s*(?:Ω|ohms?|ω)/g;
   let match: RegExpExecArray | null;
   const foundLabels = new Set<string>();
 
-  while ((match = rAssign.exec(normText)) !== null) {
-    const idx = match[1] || String(components.filter(c => c.type === 'resistor').length + 1);
-    const label = `R${idx}`;
+  const claimResistorLabel = (from: number): string | null => {
+    for (let i = from; i < from + 100; i++) {
+      const candidate = `R${i}`;
+      if (!foundLabels.has(candidate)) return candidate;
+    }
+    return null;
+  };
+
+  while ((match = rNumbered.exec(normText)) !== null) {
+    const label = `R${match[1]}`;
     if (foundLabels.has(label)) continue;
     foundLabels.add(label);
     const value = parseValueWithUnit(match[2], match[3] || '');
+    if (value >= 0) components.push({ type: 'resistor', label, value });
+  }
+
+  while ((match = rBare.exec(normText)) !== null) {
+    const label = claimResistorLabel(components.filter(c => c.type === 'resistor').length + 1);
+    if (!label) continue;
+    foundLabels.add(label);
+    const value = parseValueWithUnit(match[1], match[2] || '');
     if (value >= 0) components.push({ type: 'resistor', label, value });
   }
 
@@ -163,13 +183,20 @@ function extractComponents(text: string): ParsedComponent[] {
   }
 
   // Extract node assignments from text: "R1 between node 1 and node 2"
-  const nodePattern = /([RrVvIiCcLl]\w*)(?:\s*[=:]\s*[^,;\n]*?)?\s*(?:between|from|connects?)\s*(?:node\s*)?(\d+|ground|gnd)\s*(?:and|to)\s*(?:node\s*)?(\d+|ground|gnd)/gi;
-  while ((match = nodePattern.exec(normText)) !== null) {
-    const label = match[1].toUpperCase();
-    const comp = components.find(c => c.label.toUpperCase() === label);
-    if (comp) {
-      comp.nodeA = /ground|gnd/i.test(match[2]) ? 0 : Number(match[2]);
-      comp.nodeB = /ground|gnd/i.test(match[3]) ? 0 : Number(match[3]);
+  // Node assignments: "R1 between node 1 and node 2", "Vs = 12V from node 1 to gnd".
+  // The label must sit directly before between|from|connects — only an inline
+  // "= value unit" may intervene — and cannot start mid-word. Each clause is
+  // matched on its own so one component's connection never bleeds onto another.
+  const nodePattern = /(?<![\w])([RrVvIiCcLl]\w*)\s*(?:[=:]\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s*[kKmMμuUnNpP]?\s*(?:Ω|ohms?|ω|[VA]|[Ff]|[Hh])?)?\s*(?:between|from|connects?)\s*(?:node\s*)?(\d+|ground|gnd)\s*(?:and|to)\s*(?:node\s*)?(\d+|ground|gnd)/gi;
+  for (const clause of normText.split(/[.;\n](?=\s|$)/)) {
+    nodePattern.lastIndex = 0;
+    while ((match = nodePattern.exec(clause)) !== null) {
+      const label = match[1].toUpperCase();
+      const comp = components.find(c => c.label.toUpperCase() === label);
+      if (comp) {
+        comp.nodeA = /ground|gnd/i.test(match[2]) ? 0 : Number(match[2]);
+        comp.nodeB = /ground|gnd/i.test(match[3]) ? 0 : Number(match[3]);
+      }
     }
   }
 
