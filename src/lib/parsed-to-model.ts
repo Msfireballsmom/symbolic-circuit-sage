@@ -202,6 +202,15 @@ function buildQuestions(parsed: ParsedProblem, components: Component[]): Analysi
       deliverable: "number",
       sourceText: kind === 'power' ? `Find the power absorbed by ${c.id}.` : `Find the current through ${c.id}.`,
     });
+    if (kind !== 'power' && parsed.findWhat.includes('power')) {
+      questions.push({
+        label: String.fromCharCode(label++),
+        kind: 'power',
+        target: { type: 'component', ref: c.id },
+        deliverable: 'number',
+        sourceText: `Find the power absorbed by ${c.id}.`,
+      });
+    }
   }
   return questions;
 }

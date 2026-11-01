@@ -623,9 +623,15 @@ export function solveQuestion(model: CircuitModel, question: AnalysisRequest): S
         if (!c || c.kind !== 'resistor') throw new UnsupportedProblemError('Power output is verified for resistors only.', 'Select a resistor.');
         const voltage = dc.nodeVoltages[c.terminals[0]] - dc.nodeVoltages[c.terminals[1]];
         const current = dc.branchCurrents[c.id];
-        const power = voltage * current;
+        const R = c.value.magnitude;
+        const pVi = voltage * current;
+        const pSquared = (voltage * voltage) / R;
+        const power = pVi;
         if (!Number.isFinite(power)) throw new UnsupportedProblemError('Nonfinite power; answer withheld.', 'Check the component values.');
-        steps.push(`P(${c.id}) = V·I = ${voltage.toPrecision(6)} V × ${current.toPrecision(6)} A = ${power.toPrecision(6)} W (absorbed).`);
+        if (!Number.isFinite(pSquared) || Math.abs(pVi - pSquared) > 1e-9 * Math.max(1, Math.abs(pVi))) {
+          throw new UnsupportedProblemError('Resistor power cross-check V·I versus V²/R disagrees; answer withheld.', 'Check the resistor value, voltage and current.');
+        }
+        steps.push(`P(${c.id}) = V·I = ${voltage.toPrecision(6)} V × ${current.toPrecision(6)} A = ${power.toPrecision(6)} W = ${(power * 1000).toPrecision(6)} mW; cross-check V²/R = ${(voltage * voltage).toPrecision(6)} / ${R.toPrecision(6)} Ω = ${pSquared.toPrecision(6)} W — the two agree to 1e-9.`);
         return { numeric: power, units: 'W', steps, assumptions };
       }
       return readDC(dc, steps);
