@@ -176,6 +176,7 @@ const VerifiedSolution = ({ parsed, onSolved }: { parsed: ParsedProblem; onSolve
             <p className="text-[11px] font-mono text-muted-foreground mt-1">
               delivered {fmt(verification.delivered, "W")} · dissipated {fmt(verification.dissipated, "W")} ·
               residual {verification.residual.toExponential(2)} W
+              {verification.absorbedBySources > 0 && ` · absorbed by sources ${fmt(verification.absorbedBySources, "W")}`}
             </p>
           </div>
         )}
