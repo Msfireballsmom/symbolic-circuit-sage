@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { solveRLC, RLCInput, RLCResult } from "@/lib/circuit-solver";
 import { defaultRLCInput, suggestRLCFinalTime } from "@/lib/rlc-settling";
+import { RLC_RESIDUAL_TOLERANCE } from "@/lib/rlc-verification";
 import StepDisplay from "./StepDisplay";
 import { Play, Waves } from "lucide-react";
 
@@ -217,7 +218,7 @@ const RLCTransientTab = () => {
           {renderChart()}
           <div className="text-sm font-mono space-y-1">
             {result.verification.endpoint.map(check => (
-              <p key={check.name}>{check.name}: residual {check.residual.toExponential(6)} {check.unit} (tolerance {(1e-6 * Math.max(1e-12, Math.abs(check.scale))).toExponential(2)} {check.unit})</p>
+              <p key={check.name}>{check.name}: residual {check.residual.toExponential(6)} {check.unit} (tolerance {(RLC_RESIDUAL_TOLERANCE * Math.max(1e-12, Math.abs(check.scale))).toExponential(2)} {check.unit})</p>
             ))}
           </div>
           {suggestion.time !== undefined ? (
