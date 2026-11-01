@@ -258,6 +258,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_daily_solve: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
