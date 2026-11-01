@@ -1,6 +1,7 @@
 import { buildCircuitModel } from "./parsed-to-model";
 import { solveDCOperatingPoint, solveQuestion, powerBalance, verifyKCL } from "./model-solver";
 import { requireIndependentAgreement } from "./independent-dc";
+import { preflight } from "./preflight";
 // Circuit Analysis Engine - Core mathematical operations
 
 // ============ MATRIX OPERATIONS ============
@@ -39,6 +40,8 @@ export function solveLinearSystem(G: number[][], I: number[]): number[] {
 // ============ DC NODAL ANALYSIS ============
 
 export interface DCComponent {
+  /** Stable row identity for editors. The solver ignores it. */
+  id?: string;
   type: 'resistor' | 'voltage_source' | 'current_source';
   value: number;
   nodeA: number; // positive terminal node (0 = ground)
@@ -60,9 +63,15 @@ export function solveDC(components: DCComponent[]): DCResult {
     if (!Number.isInteger(c.nodeA) || !Number.isInteger(c.nodeB) || c.nodeA < 0 || c.nodeB < 0) throw new Error('Node IDs must be nonnegative integers.');
   }
   const { model } = buildCircuitModel({
-    components: components.map((c, i) => ({ ...c, label: `${c.type}_${i + 1}` })),
+    components: components.map((c, i) => ({ type: c.type, value: c.value, nodeA: c.nodeA, nodeB: c.nodeB, label: `${c.type}_${i + 1}` })),
     method: 'dc_nodal', rawText: '', findWhat: ['all'], confidence: 1, warnings: [],
   });
+  // Preflight is the component that names what is wrong. Running it here means a
+  // floating node is reported by name instead of as a generic singular matrix.
+  const check = preflight(model);
+  if (!check.ok) {
+    throw new Error(check.blocking.map((issue) => (issue.fix ? `${issue.message} ${issue.fix}` : issue.message)).join(' '));
+  }
   const dc = solveDCOperatingPoint(model);
   requireIndependentAgreement(model, dc.nodeVoltages);
   // Public entry enforces physical residuals before any answer is returned.
@@ -70,11 +79,19 @@ export function solveDC(components: DCComponent[]): DCResult {
   if (!question) throw new Error('No non-ground circuit output.');
   const answer = solveQuestion(model, question);
   const pb = powerBalance(model, dc), kcl = verifyKCL(model, dc);
+  // Derived from the measured residuals, never assumed: the same tolerances
+  // assertVerified() enforces. The UI renders these flags as green ticks.
+  const powerTolerance = 1e-6 * Math.max(1, Math.abs(pb.delivered));
+  const kclPass = kcl <= 1e-6;
+  const powerPass = Math.abs(pb.residual) <= powerTolerance;
   return {
     nodeVoltages: model.nodes.filter(n => !n.isGround).map(n => ({ node: Number(n.id.slice(1)), voltage: dc.nodeVoltages[n.id] })),
     branchCurrents: components.map((c, i) => ({ component: `${c.type}_${i + 1}`, current: (c.type === 'current_source' ? -1 : 1) * dc.branchCurrents[`${c.type}_${i + 1}`] })),
-    powerBalance: { delivered: pb.delivered, absorbed: pb.dissipated, balanced: true },
-    residuals: [{ type: 'KCL', location: 'Worst normalized node', value: kcl, pass: true }, { type: 'Power', location: 'Circuit (W)', value: pb.residual, pass: true }],
+    powerBalance: { delivered: pb.delivered, absorbed: pb.dissipated, balanced: powerPass },
+    residuals: [
+      { type: 'KCL', location: 'Worst normalized node', value: kcl, pass: kclPass },
+      { type: 'Power', location: 'Circuit (W)', value: pb.residual, pass: powerPass },
+    ],
     steps: [...answer.steps, 'Verified: independent branch-tableau solution agrees with MNA. Current-source arrows point into Node+; displayed current is Node+ to Node−.'],
     // MNA derivation is shown in steps; do not fabricate a reduced matrix.
     matrix: { G: [], I: [], labels: [] },
