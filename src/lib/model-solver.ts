@@ -531,10 +531,30 @@ export function solveFirstOrder(
 
 // --- power balance ----------------------------------------------------------
 
-export function powerBalance(model: CircuitModel, dc: DCSolution): { delivered: number; dissipated: number; residual: number } {
+export interface PowerBalance {
+  /** Power leaving sources that are actually supplying energy (W, >= 0). */
+  delivered: number;
+  /** Power converted to heat in resistors (W, >= 0). */
+  dissipated: number;
+  /** Power flowing INTO sources that are being charged (W, >= 0 magnitude). */
+  absorbedBySources: number;
+  /** delivered − dissipated − absorbedBySources (W). Zero when the audit holds. */
+  residual: number;
+}
+
+export function powerBalance(model: CircuitModel, dc: DCSolution): PowerBalance {
   let delivered = 0;
+  let absorbedBySources = 0;
   let dissipated = 0;
   const vAcross = (c: Component) => dc.nodeVoltages[c.terminals[0]] - dc.nodeVoltages[c.terminals[1]];
+  // Split every source term by its own sign instead of netting them into one
+  // accumulator. A battery being charged has negative signed power; booking it
+  // as absorption keeps `delivered` meaning "supplied", so 12 V → 1 kΩ → 5 V
+  // reports 84 mW delivered, 49 mW dissipated and 35 mW absorbed by V2.
+  const addSource = (power: number) => {
+    if (power >= 0) delivered += power;
+    else absorbedBySources += -power;
+  };
   for (const c of model.components) {
     const i = dc.branchCurrents[c.id] ?? 0;
     switch (c.kind) {
@@ -544,18 +564,21 @@ export function powerBalance(model: CircuitModel, dc: DCSolution): { delivered: 
       case "vsource":
       case "vcvs":
       case "ccvs":
-        delivered += vAcross(c) * -i;
+        addSource(vAcross(c) * -i);
         break;
       case "isource":
       case "vccs":
       case "cccs":
-        delivered += vAcross(c) * i;
+        addSource(vAcross(c) * i);
         break;
       default:
         break; // ideal L (short) and C (open) carry no DC power
     }
   }
-  return { delivered, dissipated, residual: delivered - dissipated };
+  // The residual is numerically identical to the old delivered − dissipated
+  // because delivered + (−absorbedBySources) is the same signed source total,
+  // so assertVerified() and its tolerance keep working unchanged.
+  return { delivered, dissipated, absorbedBySources, residual: delivered - dissipated - absorbedBySources };
 }
 
 // --- public entry point -----------------------------------------------------

@@ -51,7 +51,7 @@ export interface DCComponent {
 export interface DCResult {
   nodeVoltages: { node: number; voltage: number }[];
   branchCurrents: { component: string; current: number }[];
-  powerBalance: { delivered: number; absorbed: number; balanced: boolean };
+  powerBalance: { delivered: number; absorbed: number; absorbedBySources?: number; balanced: boolean };
   residuals: { type: string; location: string; value: number; pass: boolean }[];
   steps: string[];
   matrix: { G: number[][]; I: number[]; labels: string[] };
@@ -87,7 +87,7 @@ export function solveDC(components: DCComponent[]): DCResult {
   return {
     nodeVoltages: model.nodes.filter(n => !n.isGround).map(n => ({ node: Number(n.id.slice(1)), voltage: dc.nodeVoltages[n.id] })),
     branchCurrents: components.map((c, i) => ({ component: `${c.type}_${i + 1}`, current: (c.type === 'current_source' ? -1 : 1) * dc.branchCurrents[`${c.type}_${i + 1}`] })),
-    powerBalance: { delivered: pb.delivered, absorbed: pb.dissipated, balanced: powerPass },
+    powerBalance: { delivered: pb.delivered, absorbed: pb.dissipated + pb.absorbedBySources, absorbedBySources: pb.absorbedBySources, balanced: powerPass },
     residuals: [
       { type: 'KCL', location: 'Worst normalized node', value: kcl, pass: kclPass },
       { type: 'Power', location: 'Circuit (W)', value: pb.residual, pass: powerPass },
