@@ -12,6 +12,7 @@ import {
 import type { ParsedProblem } from "@/lib/problem-parser";
 import type { AnalysisRequest } from "@/lib/circuit-model";
 import { requireIndependentAgreement } from '@/lib/independent-dc';
+import { guardAnswer } from '@/lib/answer-guard';
 
 interface Answer {
   question: AnalysisRequest;
@@ -32,10 +33,11 @@ const fmt = (v: number, unit?: string) => {
  */
 const VerifiedSolution = ({ parsed, onSolved }: { parsed: ParsedProblem; onSolved?: () => void }) => {
   const build = useMemo(() => buildCircuitModel(parsed), [parsed]);
+  const answerGuard = useMemo(() => guardAnswer(build.model.components, build.model.questions, parsed.findWhat), [build.model, parsed.findWhat]);
   const check = useMemo(() => preflight(build.model), [build.model]);
 
   const answers = useMemo<Answer[]>(() => {
-    if (!check.ok || build.unsupported.length || analysisKindFor(parsed.method) === null) return [];
+    if (!answerGuard.ok || !check.ok || build.unsupported.length || analysisKindFor(parsed.method) === null) return [];
     return build.model.questions.map((question) => {
       try {
         return { question, result: solveQuestion(build.model, question) };
@@ -50,10 +52,10 @@ const VerifiedSolution = ({ parsed, onSolved }: { parsed: ParsedProblem; onSolve
         };
       }
     });
-  }, [build.model, build.unsupported.length, check.ok, parsed.method]);
+  }, [answerGuard.ok, build.model, build.unsupported.length, check.ok, parsed.method]);
 
   const verification = useMemo(() => {
-    if (!check.ok || build.unsupported.length || analysisKindFor(parsed.method) === null) return null;
+    if (!answerGuard.ok || !check.ok || build.unsupported.length || analysisKindFor(parsed.method) === null) return null;
     try {
       const dc = solveDCOperatingPoint(build.model);
       requireIndependentAgreement(build.model, dc.nodeVoltages);
@@ -62,11 +64,28 @@ const VerifiedSolution = ({ parsed, onSolved }: { parsed: ParsedProblem; onSolve
     } catch {
       return null;
     }
-  }, [build.model, check.ok]);
+  }, [answerGuard.ok, build.model, build.unsupported.length, check.ok, parsed.method]);
 
   const namedKind = analysisKindFor(parsed.method);
-  const allVerified = answers.length > 0 && answers.every(answer => answer.result) && verification?.ok === true;
+  const allVerified = answerGuard.ok && answers.length > 0 && answers.every(answer => answer.result) && verification?.ok === true;
   useEffect(() => { if (allVerified) onSolved?.(); }, [allVerified, onSolved]);
+
+  if (answerGuard.ok === false) {
+    return (
+      <Card className="border-warning/30">
+        <CardHeader className="p-4 pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-warning" />
+            Answer withheld — cannot be answered from this netlist
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 pt-2 space-y-2" role="alert">
+          <p className="text-xs text-warning">{answerGuard.message}</p>
+          <p className="text-xs text-muted-foreground">{answerGuard.remedy}</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-primary/30">

@@ -6,6 +6,7 @@
 - Run the entire automated suite after changes; production compilation is managed by the Lovable harness, and its latest build log must be checked before completion.
 - Verify canonical DC with a separately implemented branch tableau, then KCL and power residuals; independent formulations catch stamping errors without trusting solver labels.
 - Confirmed extraction is the only Snap solve path; missing fields and unsupported methods/components block the whole answer rather than dropping parts.
+- The pure answer guard precedes certified presentation and completion metering: source-less operating-point questions are refused without blocking initial-conditioned transient questions or guessing resistance terminals.
 - AI endpoints validate sessions, admin generation roles, bounded schemas and atomic service-only request budgets before calling the existing gateway; browser code never holds private credentials.
 - Export verification defaults to unverified and is explicitly passed only by a checked result; escaped user content prevents executable export HTML.
 - Visible unverified workflows are replaced by the central availability policy with no numerical or grading actions; server integrations stay disabled until authenticated end-to-end evidence exists.
