@@ -6,6 +6,7 @@ import { Zap, Check, X, Crown, ArrowLeft, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { AUTH_ENABLED, PAYMENTS_ENABLED } from "@/lib/feature-flags";
 
 export const COMPARISON_ROWS = [
   ["DC nodal analysis", false, true, true, false],
@@ -31,6 +32,7 @@ const PricingPage = () => {
   const [loadingTier, setLoadingTier] = useState<TierKey | null>(null);
 
   const handleCheckout = async (tier: TierKey) => {
+    if (!PAYMENTS_ENABLED || !AUTH_ENABLED) return;
     if (!user || !session?.access_token || isTestMode) {
       toast({
         title: "Sign in required",
@@ -58,6 +60,7 @@ const PricingPage = () => {
   };
 
   const handleManage = async () => {
+    if (!PAYMENTS_ENABLED || !AUTH_ENABLED) return;
     if (!session?.access_token || isTestMode) {
       toast({
         title: "Sign in required",
@@ -157,7 +160,11 @@ const PricingPage = () => {
                   ))}
                 </div>
 
-                {isCurrent ? (
+                {!PAYMENTS_ENABLED || !AUTH_ENABLED ? (
+                  <Button variant="outline" className="w-full" disabled>
+                    Not on sale yet
+                  </Button>
+                ) : isCurrent ? (
                   <Button variant="outline" className="w-full" onClick={handleManage}>
                     Manage Subscription
                   </Button>

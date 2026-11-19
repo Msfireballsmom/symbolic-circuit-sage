@@ -2,10 +2,12 @@ import { Zap } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useFreeRun } from "@/hooks/useFreeRun";
 import { TIERS, TierKey } from "@/lib/tier-config";
+import { AUTH_ENABLED } from "@/lib/feature-flags";
 
 const SolveCounter = () => {
   const { user, subscription, dailySolves } = useAuth();
   const { available: freeRunAvailable } = useFreeRun();
+  if (!AUTH_ENABLED) return null;
 
   const tier = subscription?.tier as TierKey | null;
 

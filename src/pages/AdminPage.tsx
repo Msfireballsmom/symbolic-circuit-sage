@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import ET310Coverage from '@/components/ET310Coverage';
 import UnavailableWorkflow from '@/components/UnavailableWorkflow';
+import { AUTH_ENABLED } from '@/lib/feature-flags';
 
 export default function AdminPage() {
   const { user, isAdmin, loading } = useAuth();
@@ -13,7 +14,7 @@ export default function AdminPage() {
     <p className="text-muted-foreground">A real signed-in administrator account is required. Test personas cannot grant administrator access.</p>
     <UnavailableWorkflow id="generation" />
     <UnavailableWorkflow id="history" />
-    <Button variant="outline" onClick={() => navigate(user ? '/' : '/auth')}>{user ? 'Back to App' : 'Sign In'}</Button>
+    <Button variant="outline" onClick={() => navigate(!AUTH_ENABLED || user ? '/' : '/auth')}>{!AUTH_ENABLED || user ? 'Back to App' : 'Sign In'}</Button>
   </main>;
   return <main className="container py-8 space-y-6">
     <Button variant="outline" onClick={() => navigate('/')}>Back to App</Button>

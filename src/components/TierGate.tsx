@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ReactNode } from "react";
 import { TierKey, TIERS, TAB_TIER_REQUIREMENTS, tierMeetsRequirement } from "@/lib/tier-config";
 
-// Payments are not live yet: every solver is open to everyone until Stripe
-// launches. Flip this to true when billing goes live to re-enable gating.
-const PAYMENTS_ENABLED = false;
+import { AUTH_ENABLED, PAYMENTS_ENABLED } from "@/lib/feature-flags";
 
 interface TierGateProps {
   children: ReactNode;
@@ -20,7 +18,7 @@ const TierGate = ({ children, tabId }: TierGateProps) => {
   const { available: freeRunAvailable } = useFreeRun();
   const navigate = useNavigate();
 
-  if (!PAYMENTS_ENABLED) return <>{children}</>;
+  if (!AUTH_ENABLED || !PAYMENTS_ENABLED) return <>{children}</>;
 
   // Guests and non-logged-in users see content (handled by auth page)
   if (!user) return <>{children}</>;

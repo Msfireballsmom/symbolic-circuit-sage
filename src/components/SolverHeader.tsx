@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import SolveCounter from "@/components/SolveCounter";
 import { TIERS, TierKey } from "@/lib/tier-config";
+import { AUTH_ENABLED } from "@/lib/feature-flags";
 
 const TIER_LABELS: Record<string, string> = {
   basic: "BASIC",
@@ -43,7 +44,7 @@ const SolverHeader = () => {
 
           <SolveCounter />
 
-          {user && (
+          {AUTH_ENABLED && user && (
             <div className="flex items-center gap-2">
               {hasPaid ? (
                 <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 border border-primary/30 text-primary text-[10px] font-semibold">

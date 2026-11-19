@@ -10,6 +10,7 @@ import AuthPage from "./pages/AuthPage";
 import AdminPage from "./pages/AdminPage";
 import PricingPage from "./pages/PricingPage";
 import NotFound from "./pages/NotFound";
+import { AUTH_ENABLED } from "@/lib/feature-flags";
 
 const queryClient = new QueryClient();
 
@@ -17,6 +18,7 @@ const queryClient = new QueryClient();
 // until Stripe billing launches. Re-enable the redirect to /auth at that point.
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { loading } = useAuth();
+  if (!AUTH_ENABLED) return <>{children}</>;
   if (loading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-primary animate-pulse text-sm font-mono">Loading...</div>
@@ -36,7 +38,7 @@ const AppRoutes = () => (
   <Routes>
     {/* Sign-in page is hidden until Stripe launches: /auth sends visitors straight to the app. */}
     <Route path="/auth" element={<Navigate to="/" replace />} />
-    <Route path="/login" element={<AuthRoute><AuthPage /></AuthRoute>} />
+    <Route path="/login" element={AUTH_ENABLED ? <AuthRoute><AuthPage /></AuthRoute> : <Navigate to="/" replace />} />
     <Route path="/admin" element={<AdminPage />} />
     <Route path="/pricing" element={<PricingPage />} />
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />

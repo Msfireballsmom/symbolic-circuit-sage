@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Crown, Lock } from "lucide-react";
 import { ReactNode } from "react";
+import { AUTH_ENABLED } from "@/lib/feature-flags";
 
 interface ProGateProps {
   children: ReactNode;
@@ -9,6 +10,7 @@ interface ProGateProps {
 
 const ProGate = ({ children, featureName }: ProGateProps) => {
   const { isPro, user } = useAuth();
+  if (!AUTH_ENABLED) return <>{children}</>;
 
   // If not logged in at all, show the content (handled by auth page)
   if (!user) return <>{children}</>;

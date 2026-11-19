@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { AUTH_ENABLED } from "@/lib/feature-flags";
 
 /**
  * Free monthly full run.
@@ -38,6 +39,7 @@ export const FreeRunProvider = ({ children }: { children: ReactNode }) => {
   const [consumed, setConsumed] = useState(false);
 
   useEffect(() => {
+    if (!AUTH_ENABLED) return;
     try {
       setConsumed(localStorage.getItem(storageKey(userId, period)) === "used");
     } catch {
@@ -46,6 +48,7 @@ export const FreeRunProvider = ({ children }: { children: ReactNode }) => {
   }, [userId, period]);
 
   const markSolveCompleted = useCallback(() => {
+    if (!AUTH_ENABLED) return;
     if (consumed) return;
     try {
       localStorage.setItem(storageKey(userId, period), "used");
@@ -56,7 +59,7 @@ export const FreeRunProvider = ({ children }: { children: ReactNode }) => {
   }, [consumed, userId, period]);
 
   const value = useMemo<FreeRunState>(
-    () => ({ available: !consumed, consumed, period, markSolveCompleted }),
+    () => ({ available: !AUTH_ENABLED || !consumed, consumed: AUTH_ENABLED && consumed, period, markSolveCompleted }),
     [consumed, period, markSolveCompleted],
   );
 

@@ -1,4 +1,5 @@
 # Engineering rules
+- Centralize reversible auth visibility and payment gating in feature-flags; disabling auth also disables completion metering so signed-out testing needs no account or quota.
 - ET310 coverage uses a shared original parameterized case corpus for automated tests and live developer checks, so course certification reflects the same numerical evidence rather than a static label.
 - RLC verification separates physical KCL/KVL/continuity residuals from finite-time settling; reject physical failures and withhold Verified status when endpoint residuals fail.
 - RLC automatic horizons live in a pure settling module and must pass the unchanged solver audit; physically valid short runs show only waveforms/residuals with an audited extension action.
