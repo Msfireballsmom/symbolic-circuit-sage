@@ -50,7 +50,7 @@ const fmt = (x: number) => Number.isFinite(x) ? Number(x.toPrecision(6)).toStrin
 
 export function scoreAll(): Row[] {
   const rows: Row[] = [];
-  for (const p of REAL_PROBLEMS as any[]) {
+  for (const p of REAL_PROBLEMS as readonly any[]) {
     if (p.kind === 'dc' || p.kind === 'first_order') {
       const run = runSage(p.text);
       const it = interpret(run.parsed.components, p.netlist);

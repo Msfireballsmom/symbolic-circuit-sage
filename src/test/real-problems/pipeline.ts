@@ -45,7 +45,7 @@ export function runSage(text: string): SageRun {
   }
   const shown = guard.ok && answers.length > 0 && answers.every(a => a.result) && verificationOk;
   const withheldBy = shown ? null
-    : !guard.ok ? `answer-guard: ${guard.code}`
+    : guard.ok === false ? `answer-guard: ${guard.code}`
     : !check.ok ? `preflight: ${check.blocking.map(b => b.code).join(', ')}`
     : build.unsupported.length ? `unsupported: ${build.unsupported.map(u => u.kind).join(', ')}`
     : kind === null ? `method "${confirmed.method}" has no verified path`
