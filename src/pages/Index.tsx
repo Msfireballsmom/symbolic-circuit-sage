@@ -5,11 +5,10 @@ import TransientTab from "@/components/TransientTab";
 import RLCTransientTab from "@/components/RLCTransientTab";
 import CircuitSagePanel from "@/components/CircuitSagePanel";
 import SavedProblemsTab from "@/components/SavedProblemsTab";
-import UnavailableWorkflow from '@/components/UnavailableWorkflow';
 import TierGate from "@/components/TierGate";
 import TestModeBanner from "@/components/TestModeBanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Timer, Waves, BookOpen, Calculator, Activity, GitBranch, Sigma, AudioWaveform, BarChart3, Bookmark, Trophy, Camera, Crown, BookCheck } from "lucide-react";
+import { Zap, Timer, BookOpen, Activity, Bookmark, Camera, Crown } from "lucide-react";
 import ET310Coverage from '@/components/ET310Coverage';
 import ErrorBoundary from "@/components/ErrorBoundary";
 
@@ -55,19 +54,10 @@ const Index = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-card border border-border h-auto p-1 flex-wrap">
             {import.meta.env.DEV && <TabsTrigger value="coverage" className="text-xs">ET310 Coverage</TabsTrigger>}
-            <TabsTrigger value="quick" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <Calculator className="w-4 h-4" />
-              Quick Solve
-            </TabsTrigger>
             <TabsTrigger value="dc" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Zap className="w-4 h-4" />
               <span className="hidden sm:inline">DC</span> Nodal
               {isLocked("dc") && <Crown className="w-3 h-3 text-primary/50" />}
-            </TabsTrigger>
-            <TabsTrigger value="mesh" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <GitBranch className="w-4 h-4" />
-              Mesh
-              {isLocked("mesh") && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
             <TabsTrigger value="transient" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Timer className="w-4 h-4" />
@@ -79,45 +69,15 @@ const Index = () => {
               <span className="hidden sm:inline">2nd-Order</span> RLC
               {isLocked("rlc") && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
-            <TabsTrigger value="ac" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <Waves className="w-4 h-4" />
-              AC Phasor
-              {isLocked("ac") && <Crown className="w-3 h-3 text-primary/50" />}
-            </TabsTrigger>
-            <TabsTrigger value="laplace" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <Sigma className="w-4 h-4" />
-              Laplace
-              {isLocked("laplace") && <Crown className="w-3 h-3 text-primary/50" />}
-            </TabsTrigger>
-            <TabsTrigger value="fourier" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <AudioWaveform className="w-4 h-4" />
-              Fourier
-              {isLocked("fourier") && <Crown className="w-3 h-3 text-primary/50" />}
-            </TabsTrigger>
-            <TabsTrigger value="bode" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <BarChart3 className="w-4 h-4" />
-              Bode Plot
-              {isLocked("bode") && <Crown className="w-3 h-3 text-primary/50" />}
-            </TabsTrigger>
             <TabsTrigger value="sage" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
               <Camera className="w-4 h-4" />
               Snap & Solve
               {isLocked("sage") && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
-            <TabsTrigger value="homework" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
-              <BookCheck className="w-4 h-4" />
-              Check Homework
-              {isLocked("homework") && <Crown className="w-3 h-3 text-primary/50" />}
-            </TabsTrigger>
             <TabsTrigger value="saved" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Bookmark className="w-4 h-4" />
               Saved
               {isLocked("saved") && <Crown className="w-3 h-3 text-primary/50" />}
-            </TabsTrigger>
-            <TabsTrigger value="exam" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
-              <Trophy className="w-4 h-4" />
-              Practice Exam
-              {isLocked("exam") && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
             <TabsTrigger value="reference" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <BookOpen className="w-4 h-4" />
@@ -125,20 +85,12 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="quick"><Tab label="Quick Solve"><UnavailableWorkflow id="quick" /></Tab></TabsContent>
           {import.meta.env.DEV && <TabsContent value="coverage"><Tab label="ET310 Coverage"><ET310Coverage /></Tab></TabsContent>}
           <TabsContent value="dc"><Tab label="DC Nodal"><TierGate tabId="dc"><DCAnalysisTab /></TierGate></Tab></TabsContent>
-          <TabsContent value="mesh"><Tab label="Mesh"><UnavailableWorkflow id="mesh" /></Tab></TabsContent>
           <TabsContent value="transient"><Tab label="1st-Order Transient"><TierGate tabId="transient"><TransientTab /></TierGate></Tab></TabsContent>
           <TabsContent value="rlc"><Tab label="2nd-Order RLC"><TierGate tabId="rlc"><RLCTransientTab /></TierGate></Tab></TabsContent>
-          <TabsContent value="ac"><Tab label="AC Phasor"><UnavailableWorkflow id="ac" /></Tab></TabsContent>
-          <TabsContent value="laplace"><Tab label="Laplace"><UnavailableWorkflow id="laplace" /></Tab></TabsContent>
-          <TabsContent value="fourier"><Tab label="Fourier"><UnavailableWorkflow id="fourier" /></Tab></TabsContent>
-          <TabsContent value="bode"><Tab label="Bode Plot"><UnavailableWorkflow id="bode" /></Tab></TabsContent>
           <TabsContent value="sage"><Tab label="Snap & Solve"><TierGate tabId="sage"><CircuitSagePanel onNavigateToTab={setActiveTab} /></TierGate></Tab></TabsContent>
-          <TabsContent value="homework"><Tab label="Check Homework"><UnavailableWorkflow id="homework" /></Tab></TabsContent>
           <TabsContent value="saved"><Tab label="Saved"><TierGate tabId="saved"><SavedProblemsTab /></TierGate></Tab></TabsContent>
-          <TabsContent value="exam"><Tab label="Practice Exam"><UnavailableWorkflow id="exam" /></Tab></TabsContent>
           <TabsContent value="reference">
             <Tab label="Reference">
             <div className="p-6 rounded-lg bg-card border border-border space-y-6">
