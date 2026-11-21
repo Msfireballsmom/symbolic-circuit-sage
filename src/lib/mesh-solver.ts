@@ -2,6 +2,7 @@
 // KVL-based: builds [R][I_mesh] = [V] and solves with full symbolic work
 
 import { solveLinearSystem } from './circuit-solver';
+import { assertMeshMatchesNodal } from './mesh-equivalence';
 
 export interface MeshComponent {
   type: 'resistor' | 'voltage_source' | 'current_source';
@@ -223,6 +224,11 @@ export function solveMesh(numMeshes: number, components: MeshComponent[]): MeshR
   }
 
   if (!balanced || currents.some(v => !Number.isFinite(v)) || R.some((row, i) => Math.abs(row.reduce((sum, r, j) => sum + r * currents[j], -V[i])) > 1e-6 * Math.max(1e-12, Math.abs(V[i]), ...row.map((r, j) => Math.abs(r * currents[j]))))) throw new Error('Unverified: mesh KVL or power residual failed; answer withheld.');
+  assertMeshMatchesNodal(numMeshes, components, currents);
+  steps.push(`STEP 9: Independent nodal cross-check`);
+  steps.push(`  The same elements were connected as a single row of loops and solved by nodal analysis plus an independent branch tableau.`);
+  steps.push(`  Every branch current agrees. Supermeshes, current sources, and meshes that share in a loop are refused.`);
+  steps.push(``);
   return {
     meshCurrents,
     branchCurrents,

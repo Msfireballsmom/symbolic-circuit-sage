@@ -1,6 +1,7 @@
 import { buildCircuitModel } from "./parsed-to-model";
 import { solveDCOperatingPoint, solveQuestion, powerBalance, verifyKCL } from "./model-solver";
 import { requireIndependentAgreement } from "./independent-dc";
+import { assertPhasorPhysics } from "./independent-ac";
 import { preflight } from "./preflight";
 // Circuit Analysis Engine - Core mathematical operations
 
@@ -218,6 +219,9 @@ export interface ACInput {
 export interface ACResult {
   impedance: Complex;
   current: Complex;
+  currentR: Complex;
+  currentL: Complex;
+  currentC: Complex;
   voltageR: Complex;
   voltageL: Complex;
   voltageC: Complex;
@@ -229,67 +233,121 @@ export interface ACResult {
 }
 
 export function solveAC(input: ACInput): ACResult {
-  if (input.config !== 'series') throw new Error('Unverified: parallel AC topology is not implemented.');
+  if (input.config !== 'series' && input.config !== 'parallel') throw new Error('AC configuration must be series or parallel.');
   if (![input.Vm, input.phase, input.frequency, input.R, input.L, input.C].every(Number.isFinite) || input.frequency <= 0 || input.R <= 0 || input.L < 0 || input.C < 0) throw new Error('Invalid AC parameters.');
-  const { Vm, phase, frequency, R, L, C } = input;
+  const { Vm, phase, frequency, R, L, C, config } = input;
   const w = 2 * Math.PI * frequency;
   const steps: string[] = [];
+  const zero: Complex = { re: 0, im: 0 };
 
-  steps.push(`Angular frequency: ω = 2πf = 2π(${frequency}) = ${w.toFixed(2)} rad/s`);
+  steps.push(`Configuration: ${config} RLC. Peak source phasors. L = 0 or C = 0 omits that element.`);
+  steps.push(`Angular frequency: ω = 2πf = 2π(${frequency}) = ${w.toFixed(4)} rad/s`);
 
   const ZR: Complex = { re: R, im: 0 };
-  const ZL: Complex = { re: 0, im: w * L };
-  const ZC: Complex = C > 0 ? { re: 0, im: -1 / (w * C) } : { re: 0, im: 0 };
-
-  steps.push(`Z_R = ${R} Ω`);
-  if (L > 0) steps.push(`Z_L = jωL = j(${(w * L).toFixed(3)}) = ${complexToString(ZL)} Ω`);
-  if (C > 0) steps.push(`Z_C = 1/jωC = -j(${(1 / (w * C)).toFixed(3)}) = ${complexToString(ZC)} Ω`);
-
-  // Series impedance
-  const Z = complexAdd(complexAdd(ZR, ZL), ZC);
-  steps.push(`Z_total = Z_R + Z_L + Z_C = ${complexToString(Z)} Ω`);
-  steps.push(`|Z| = ${complexMag(Z).toFixed(3)} Ω, ∠Z = ${complexAngle(Z).toFixed(1)}°`);
-
+  const ZL: Complex = L > 0 ? { re: 0, im: w * L } : zero;
+  const ZC: Complex = C > 0 ? { re: 0, im: -1 / (w * C) } : zero;
   const phaseRad = phase * Math.PI / 180;
   const Vs: Complex = { re: Vm * Math.cos(phaseRad), im: Vm * Math.sin(phaseRad) };
-  steps.push(`Source phasor: V_s = ${polarString(Vs)}`);
+  steps.push(`Source phasor: V_s = ${polarString(Vs)} (peak)`);
 
-  const I = complexDiv(Vs, Z);
-  steps.push(`Current: I = V_s / Z = ${complexToString(I)} A = ${polarString(I)}`);
+  let Z: Complex;
+  let I: Complex;
+  let VR: Complex;
+  let VL: Complex;
+  let VC: Complex;
+  let IR: Complex;
+  let IL: Complex;
+  let IC: Complex;
 
-  const VR = complexMul(I, ZR);
-  const VL = complexMul(I, ZL);
-  const VC = complexMul(I, ZC);
-
-  steps.push(`V_R = I × Z_R = ${polarString(VR)}`);
-  if (L > 0) steps.push(`V_L = I × Z_L = ${polarString(VL)}`);
-  if (C > 0) steps.push(`V_C = I × Z_C = ${polarString(VC)}`);
+  if (config === 'series') {
+    steps.push(`Z_R = ${R} Ω`);
+    if (L > 0) steps.push(`Z_L = jωL = ${complexToString(ZL)} Ω`);
+    if (C > 0) steps.push(`Z_C = -j/(ωC) = ${complexToString(ZC)} Ω`);
+    Z = complexAdd(complexAdd(ZR, ZL), ZC);
+    if (complexMag(Z) < 1e-15) throw new Error('Series impedance is zero. Answer withheld.');
+    steps.push(`Z = Z_R + Z_L + Z_C = ${complexToString(Z)} Ω = ${polarString(Z)}`);
+    I = complexDiv(Vs, Z);
+    IR = I;
+    IL = L > 0 ? I : zero;
+    IC = C > 0 ? I : zero;
+    VR = complexMul(I, ZR);
+    VL = L > 0 ? complexMul(I, ZL) : zero;
+    VC = C > 0 ? complexMul(I, ZC) : zero;
+    steps.push(`I = V_s / Z = ${complexToString(I)} A = ${polarString(I)}`);
+    steps.push(`V_R = ${polarString(VR)}`);
+    if (L > 0) steps.push(`V_L = ${polarString(VL)}`);
+    if (C > 0) steps.push(`V_C = ${polarString(VC)}`);
+  } else {
+    const YR: Complex = { re: 1 / R, im: 0 };
+    const YL: Complex = L > 0 ? { re: 0, im: -1 / (w * L) } : zero;
+    const YC: Complex = C > 0 ? { re: 0, im: w * C } : zero;
+    const Y = complexAdd(complexAdd(YR, YL), YC);
+    steps.push(`Y_R = 1/R = ${1 / R} S`);
+    if (L > 0) steps.push(`Y_L = -j/(ωL) = ${complexToString(YL)} S`);
+    if (C > 0) steps.push(`Y_C = jωC = ${complexToString(YC)} S`);
+    steps.push(`Y = Y_R + Y_L + Y_C = ${complexToString(Y)} S`);
+    I = complexMul(Vs, Y);
+    if (complexMag(I) < 1e-18) throw new Error('Parallel admittance produces no finite current. Answer withheld.');
+    Z = complexDiv(Vs, I);
+    IR = complexMul(Vs, YR);
+    IL = L > 0 ? complexMul(Vs, YL) : zero;
+    IC = C > 0 ? complexMul(Vs, YC) : zero;
+    VR = Vs;
+    VL = L > 0 ? Vs : zero;
+    VC = C > 0 ? Vs : zero;
+    steps.push(`I = V_s · Y = ${complexToString(I)} A = ${polarString(I)}`);
+    steps.push(`Z = V_s / I = ${complexToString(Z)} Ω = ${polarString(Z)}`);
+    steps.push(`I_R = ${polarString(IR)}`);
+    if (L > 0) steps.push(`I_L = ${polarString(IL)}`);
+    if (C > 0) steps.push(`I_C = ${polarString(IC)}`);
+  }
 
   const Irms = complexMag(I) / Math.sqrt(2);
   const Vrms = Vm / Math.sqrt(2);
   const S = Vrms * Irms;
-  const pf = Math.cos(complexAngle(Z) * Math.PI / 180);
-  const P = S * pf;
+  const pfSigned = Math.cos(complexAngle(Z) * Math.PI / 180);
+  const pf = Math.abs(pfSigned);
+  const P = S * pfSigned;
   const Q = S * Math.sin(complexAngle(Z) * Math.PI / 180);
 
-  steps.push(`Power Analysis:`);
-  steps.push(`  Real Power: P = ${P.toFixed(3)} W`);
-  steps.push(`  Reactive Power: Q = ${Q.toFixed(3)} VAR`);
-  steps.push(`  Apparent Power: S = ${S.toFixed(3)} VA`);
-  steps.push(`  Power Factor: pf = cos(${complexAngle(Z).toFixed(1)}°) = ${pf.toFixed(4)} ${Q > 0 ? '(lagging)' : '(leading)'}`);
+  steps.push(`Power from RMS magnitudes (peak phasors ÷ √2):`);
+  steps.push(`  P = ${P.toFixed(6)} W`);
+  steps.push(`  Q = ${Q.toFixed(6)} VAR`);
+  steps.push(`  S = ${S.toFixed(6)} VA`);
+  steps.push(`  pf = |cos ∠Z| = ${pf.toFixed(6)} ${Q > 1e-9 ? '(lagging)' : Q < -1e-9 ? '(leading)' : '(unity)'}`);
 
-  return {
-    impedance: Z,
-    current: I,
-    voltageR: VR,
-    voltageL: VL,
-    voltageC: VC,
-    powerReal: P,
-    powerReactive: Q,
-    powerApparent: S,
-    powerFactor: pf,
-    steps,
+  const result: ACResult = {
+    impedance: Z, current: I, currentR: IR, currentL: IL, currentC: IC,
+    voltageR: VR, voltageL: VL, voltageC: VC,
+    powerReal: P, powerReactive: Q, powerApparent: S, powerFactor: pf, steps,
   };
+  assertPhasorPhysics(input, result);
+  steps.push(`Verified: 24 time-domain samples satisfy ${config === 'series' ? 'KVL' : 'KCL'}, and P, Q, S, pf match the RMS identities.`);
+  return result;
+}
+
+function quickAgrees(actual: number, expected: number) {
+  return Number.isFinite(actual) && Number.isFinite(expected)
+    && Math.abs(actual - expected) <= 1e-6 * Math.max(1e-9, Math.abs(actual), Math.abs(expected));
+}
+
+/** Second formulation for the quick calculators: a nodal circuit, not the algebra that produced the displayed number. */
+function nodalResistance(resistors: number[], config: 'series' | 'parallel') {
+  const source: DCComponent = { type: 'voltage_source', value: 1, nodeA: 1, nodeB: 0 };
+  const elements: DCComponent[] = [source];
+  if (config === 'parallel') {
+    resistors.forEach(value => elements.push({ type: 'resistor', value, nodeA: 1, nodeB: 0 }));
+  } else {
+    resistors.forEach((value, index) => {
+      const nodeA = index === 0 ? 1 : index + 1;
+      const nodeB = index === resistors.length - 1 ? 0 : index + 2;
+      elements.push({ type: 'resistor', value, nodeA, nodeB });
+    });
+  }
+  const solved = solveDC(elements);
+  const leavingPositive = -solved.branchCurrents[0].current;
+  if (!(leavingPositive > 0)) throw new Error('Unverified: nodal equivalent drew no source current. Answer withheld.');
+  return 1 / leavingPositive;
 }
 
 // ============ QUICK SOLVERS ============
@@ -316,6 +374,10 @@ export function solveSeriesParallel(resistors: number[], config: 'series' | 'par
     steps.push(`1/R_eq = ${sumInv.toFixed(6)}`);
     steps.push(`R_eq = ${Req.toFixed(4)} Ω`);
   }
+
+  const checked = nodalResistance(resistors, config);
+  if (!quickAgrees(Req, checked)) throw new Error('Unverified: equivalent resistance disagrees with the nodal circuit. Answer withheld.');
+  steps.push(`Verified against a 1 V nodal circuit: R_eq = ${checked.toPrecision(6)} Ω.`);
 
   return {
     title: `${config === 'series' ? 'Series' : 'Parallel'} Resistance`,
@@ -349,7 +411,9 @@ export function solveOhmsLaw(known: { V?: number; I?: number; R?: number }): Qui
 
   if (V === undefined || I === undefined || R === undefined || ![V, I, R].every(Number.isFinite) || R <= 0) throw new Error('No finite passive Ohm-law solution.');
   const P = V * I;
-  steps.push(`Power: P = VI = ${V.toFixed(4)} × ${I.toFixed(6)} = ${P.toFixed(6)}W`);
+  const forms = [V * I, I * I * R, (V * V) / R];
+  if (forms.some(value => !quickAgrees(value, forms[0]))) throw new Error('Unverified: VI, I²R and V²/R disagree. Answer withheld.');
+  steps.push(`Power: P = VI = I²R = V²/R = ${P.toFixed(6)}W`);
 
   return {
     title: "Ohm's Law",
@@ -380,6 +444,14 @@ export function solveVoltageDivider(Vs: number, R1: number, R2: number): QuickRe
   steps.push(`V_R2 = I × R₂ = ${Vout.toFixed(4)}V (= V_out)`);
   steps.push(`Power: P_R1 = ${P1.toFixed(6)}W, P_R2 = ${P2.toFixed(6)}W`);
   steps.push(`✓ KVL check: V_R1 + V_R2 = ${(I * R1).toFixed(4)} + ${Vout.toFixed(4)} = ${(I * R1 + Vout).toFixed(4)}V ≈ ${Vs}V`);
+  const nodal = solveDC([
+    { type: 'voltage_source', value: Vs, nodeA: 1, nodeB: 0 },
+    { type: 'resistor', value: R1, nodeA: 1, nodeB: 2 },
+    { type: 'resistor', value: R2, nodeA: 2, nodeB: 0 },
+  ]);
+  const v2 = nodal.nodeVoltages.find(node => node.node === 2)?.voltage;
+  if (v2 === undefined || !quickAgrees(Vout, v2)) throw new Error('Unverified: divider voltage disagrees with nodal analysis. Answer withheld.');
+  steps.push(`Verified against nodal analysis: V(node 2) = ${v2.toPrecision(6)} V.`);
 
   return {
     title: 'Voltage Divider',
@@ -407,6 +479,14 @@ export function solveCurrentDivider(Is: number, R1: number, R2: number): QuickRe
   steps.push(`I₁ = I_s × R₂/(R₁+R₂) = ${Is} × ${R2}/${R1 + R2} = ${I1.toFixed(6)}A`);
   steps.push(`I₂ = I_s × R₁/(R₁+R₂) = ${Is} × ${R1}/${R1 + R2} = ${I2.toFixed(6)}A`);
   steps.push(`✓ KCL check: I₁ + I₂ = ${I1.toFixed(6)} + ${I2.toFixed(6)} = ${(I1 + I2).toFixed(6)}A ≈ ${Is}A`);
+  const nodal = solveDC([
+    { type: 'current_source', value: Is, nodeA: 1, nodeB: 0 },
+    { type: 'resistor', value: R1, nodeA: 1, nodeB: 0 },
+    { type: 'resistor', value: R2, nodeA: 1, nodeB: 0 },
+  ]);
+  const throughR1 = nodal.branchCurrents[1].current;
+  if (!quickAgrees(I1, throughR1)) throw new Error('Unverified: divider current disagrees with nodal analysis. Answer withheld.');
+  steps.push(`Verified against nodal analysis: I(R1) = ${throughR1.toPrecision(6)} A.`);
 
   return {
     title: 'Current Divider',
@@ -439,6 +519,15 @@ export function solveThevenin(Voc: number, Isc: number): QuickResult {
   const Pmax = (Voc * Voc) / (4 * Rth);
   steps.push(`  R_L = R_th = ${Rth.toFixed(4)}Ω for max power`);
   steps.push(`  P_max = V_th² / (4R_th) = ${Voc}² / (4×${Rth.toFixed(4)}) = ${Pmax.toFixed(6)}W`);
+  const loaded = solveDC([
+    { type: 'voltage_source', value: Voc, nodeA: 1, nodeB: 0 },
+    { type: 'resistor', value: Rth, nodeA: 1, nodeB: 2 },
+    { type: 'resistor', value: Rth, nodeA: 2, nodeB: 0 },
+  ]);
+  const loadCurrent = loaded.branchCurrents[2].current;
+  const loadPower = loadCurrent * loadCurrent * Rth;
+  if (!quickAgrees(loadPower, Pmax)) throw new Error('Unverified: maximum power disagrees with the loaded Thévenin circuit. Answer withheld.');
+  steps.push(`Verified by loading R_L = R_th in a nodal circuit: P = ${loadPower.toPrecision(6)} W.`);
 
   return {
     title: 'Thévenin / Norton Equivalent',
@@ -466,6 +555,7 @@ export function solvePower(known: { V?: number; I?: number; R?: number }): Quick
   steps.push(`  P = V × I = ${V.toFixed(4)} × ${I.toFixed(6)} = ${(V * I).toFixed(6)}W`);
   steps.push(`  P = I²R = ${I.toFixed(6)}² × ${R.toFixed(4)} = ${(I * I * R).toFixed(6)}W`);
   steps.push(`  P = V²/R = ${V.toFixed(4)}² / ${R.toFixed(4)} = ${(V * V / R).toFixed(6)}W`);
+  if (!quickAgrees(V * I, I * I * R) || !quickAgrees(V * I, (V * V) / R)) throw new Error('Unverified: the three power forms disagree. Answer withheld.');
 
   return {
     title: 'Power Analysis',

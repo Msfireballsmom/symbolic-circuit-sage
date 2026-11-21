@@ -94,6 +94,31 @@ function complexDiv(a: { re: number; im: number }, b: { re: number; im: number }
   return { re: (a.re * b.re + a.im * b.im) / d, im: (a.im * b.re - a.re * b.im) / d };
 }
 
+/** Roots of x³ + a x² + b x + c = 0. One real root is deflated into the quadratic formula. */
+function cubicRoots(a: number, b: number, c: number): Pole[] {
+  const p = (3 * b - a * a) / 3;
+  const q = (2 * a * a * a - 9 * a * b + 27 * c) / 27;
+  const disc = (q * q) / 4 + (p * p * p) / 27;
+  const shift = -a / 3;
+  if (disc > 1e-12) {
+    const s = Math.sqrt(disc);
+    const u = Math.cbrt(-q / 2 + s);
+    const v = Math.cbrt(-q / 2 - s);
+    const x = u + v + shift;
+    const b2 = a + x;
+    const c2 = b + x * b2;
+    return [{ re: x, im: 0, multiplicity: 1 }, ...quadraticRoots(1, b2, c2)];
+  }
+  const radius = Math.sqrt(Math.max(0, -p / 3));
+  const arg = radius === 0 ? 1 : Math.max(-1, Math.min(1, (-q / 2) / (radius * radius * radius)));
+  const theta = Math.acos(arg);
+  return [0, 1, 2].map(k => ({
+    re: 2 * radius * Math.cos((theta + 2 * Math.PI * k) / 3) + shift,
+    im: 0,
+    multiplicity: 1,
+  }));
+}
+
 /** Find roots of quadratic ax²+bx+c */
 function quadraticRoots(a: number, b: number, c: number): Pole[] {
   const disc = b * b - 4 * a * c;
@@ -125,37 +150,42 @@ function findRoots(coeffs: number[]): Pole[] {
   if (degree === 2) {
     return quadraticRoots(1, a[1], a[2]);
   }
-  if (degree === 3) {
-    // Try rational root theorem for simple roots, then deflate
-    // Test simple values
-    for (const test of [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5]) {
-      const val = a[0] * test * test * test + a[1] * test * test + a[2] * test + a[3];
-      if (Math.abs(val) < 1e-8) {
-        // Deflate: divide by (s - test)
-        const b1 = 1;
-        const b2 = a[1] + test * b1;
-        const b3 = a[2] + test * b2;
-        const remaining = quadraticRoots(b1, b2, b3);
-        return [{ re: test, im: 0, multiplicity: 1 }, ...remaining];
-      }
-    }
-    // Numerical approximation for harder cubics using Newton's method
-    let x = -a[1] / 3; // initial guess
-    for (let iter = 0; iter < 100; iter++) {
-      const fx = x * x * x + a[1] * x * x + a[2] * x + a[3];
-      const fpx = 3 * x * x + 2 * a[1] * x + a[2];
-      if (Math.abs(fpx) < 1e-15) break;
-      x -= fx / fpx;
-      if (Math.abs(fx) < 1e-10) break;
-    }
-    const b2 = a[1] + x;
-    const b3 = a[2] + x * b2;
-    const remaining = quadraticRoots(1, b2, b3);
-    return [{ re: Math.round(x * 1e6) / 1e6, im: 0, multiplicity: 1 }, ...remaining];
-  }
+  if (degree === 3) return cubicRoots(a[1], a[2], a[3]);
   
   // For higher degrees, only handle up to 3
   return [{ re: NaN, im: 0, multiplicity: 1 }];
+}
+
+function assertResiduesReproduce(
+  numerator: number[],
+  denominator: number[],
+  fractions: PartialFraction[],
+  poles: Pole[],
+) {
+  const samples = [
+    { re: 0.37, im: 0.15 },
+    { re: -0.65, im: 0.4 },
+    { re: 1.4, im: -0.8 },
+    { re: 2.2, im: 0.05 },
+  ];
+  for (const sample of samples) {
+    if (poles.some(pole => Math.hypot(sample.re - pole.re, sample.im - pole.im) < 1e-3)) continue;
+    const target = complexDiv(evalPoly(numerator, sample.re, sample.im), evalPoly(denominator, sample.re, sample.im));
+    let acc = { re: 0, im: 0 };
+    for (const fraction of fractions) {
+      const add = (term: { re: number; im: number }) => { acc = { re: acc.re + term.re, im: acc.im + term.im }; };
+      if (typeof fraction.coefficient === 'number') {
+        add(complexDiv({ re: fraction.coefficient, im: 0 }, { re: sample.re - fraction.pole.re, im: sample.im - fraction.pole.im }));
+      } else {
+        const k = fraction.coefficient;
+        add(complexDiv(k, { re: sample.re - fraction.pole.re, im: sample.im - fraction.pole.im }));
+        add(complexDiv({ re: k.re, im: -k.im }, { re: sample.re - fraction.pole.re, im: sample.im + fraction.pole.im }));
+      }
+    }
+    const gap = Math.hypot(acc.re - target.re, acc.im - target.im);
+    const scale = Math.max(1e-9, Math.hypot(target.re, target.im), Math.hypot(acc.re, acc.im));
+    if (gap > 1e-5 * scale) throw new Error('Unverified: partial fractions do not reproduce F(s). Answer withheld.');
+  }
 }
 
 export function solveLaplace(input: LaplaceInput): LaplaceResult {
@@ -431,6 +461,8 @@ export function solveLaplace(input: LaplaceInput): LaplaceResult {
     steps.push(`  Final value theorem: f(∞) = lim[s→0] s·F(s) = ${dcGain.toFixed(4)}`);
   }
   steps.push(`  ✓ Pole locations confirm ${isStable ? 'stable' : 'unstable'} system`);
+  assertResiduesReproduce(responseNum, responseDen, partialFractions, responsePoles);
+  steps.push(`  ✓ Partial fractions reproduce F(s) at complex sample points.`);
 
   // Prepare pole-zero plot data
   const poleZeroData = {

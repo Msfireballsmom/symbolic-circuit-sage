@@ -226,7 +226,7 @@ const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {
           <textarea
             value={problemText}
             onChange={(e) => { setProblemText(e.target.value); setParsed(null); setConfirmed(null); setResult(null); }}
-            placeholder={`Paste your circuit problem here...\n\nExamples:\n• "Inverting op-amp: Rf = 100kΩ, Rin = 10kΩ, Vin = 0.5V"\n• "Half-wave rectifier: Vs = 12V peak, R = 1kΩ"\n• "Zener regulator: Vs = 15V, R = 330Ω, Vz = 5.1V"\n• "Nodal analysis with dependent source: VCCS gm = 0.01S"`}
+            placeholder={`Paste a circuit with values and node connections.\n\nExample:\nUse nodal analysis. 12V source between node 1 and ground, R1 = 1kΩ between node 1 and node 2, R2 = 2kΩ between node 2 and ground.\n\nMesh and AC phasors have their own tabs. Op-amps, diodes, and photos are refused here.`}
             className="w-full h-36 rounded-md bg-muted/50 border border-border p-3 text-sm font-mono text-foreground placeholder:text-muted-foreground/50 resize-y focus:outline-none focus:ring-1 focus:ring-primary"
           />
 

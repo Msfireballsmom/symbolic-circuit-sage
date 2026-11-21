@@ -7,6 +7,7 @@ import { solveDC, DCComponent, DCResult } from "@/lib/circuit-solver";
 import StepDisplay from "./StepDisplay";
 import MatrixDisplay from "./MatrixDisplay";
 import { NodeVoltageGraph } from "./ResultGraph";
+import NetlistSketch from "./NetlistSketch";
 import { Plus, Trash2, Play, Zap } from "lucide-react";
 
 type EditableComponent = DCComponent & { id: string };
@@ -97,6 +98,11 @@ const DCAnalysisTab = () => {
             </div>
           ))}
         </div>
+
+        <NetlistSketch
+          edges={components.map((comp, index) => ({ label: `${comp.type === 'voltage_source' ? 'V' : comp.type === 'current_source' ? 'I' : 'R'}${index + 1}`, nodeA: comp.nodeA, nodeB: comp.nodeB }))}
+          caption="Nodes you entered. Node 0 is ground. This drawing is the netlist, not a separate solver."
+        />
 
         <Button onClick={solve} className="mt-4 gap-2 w-full sm:w-auto">
           <Play className="w-4 h-4" /> Solve Circuit

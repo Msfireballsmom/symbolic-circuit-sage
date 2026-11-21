@@ -59,8 +59,13 @@ describe('Production verification guards', () => {
   it('does not fabricate missing vision fields', () => {
     expect(ExtractionSchema.safeParse({ components: [{ type: 'resistor', label: 'R1', value: 100 }], analysisMethod: 'dc_nodal', findWhat: ['voltage'], confidence: 1 }).success).toBe(false);
   });
-  it('rejects parallel AC rather than applying the series formula', () => {
-    expect(() => solveAC({ Vm: 10, phase: 0, frequency: 60, R: 100, L: 0.1, C: 1e-6, config: 'parallel' })).toThrow(/parallel AC topology is not implemented/i);
+  it('solves parallel AC from admittance rather than the series impedance', () => {
+    const parallel = solveAC({ Vm: 10, phase: 0, frequency: 60, R: 100, L: 0.1, C: 1e-6, config: 'parallel' });
+    const series = solveAC({ Vm: 10, phase: 0, frequency: 60, R: 100, L: 0.1, C: 1e-6, config: 'series' });
+    const w = 2 * Math.PI * 60;
+    expect(parallel.current.re).toBeCloseTo(10 / 100, 8);
+    expect(parallel.current.im).toBeCloseTo(10 * (w * 1e-6 - 1 / (w * 0.1)), 8);
+    expect(Math.hypot(parallel.impedance.re, parallel.impedance.im)).not.toBeCloseTo(Math.hypot(series.impedance.re, series.impedance.im), 1);
   });
   it('escapes user export content and defaults to uncertified status', () => {
     const write = vi.fn();
