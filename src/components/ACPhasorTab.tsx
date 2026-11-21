@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { solveAC, ACInput, ACResult, polarString, complexToString, complexMag, complexAngle } from "@/lib/circuit-solver";
 import StepDisplay from "./StepDisplay";
 import { Play, Waves } from "lucide-react";
@@ -21,11 +22,17 @@ const ACPhasorTab = () => {
 
   const PhasorDiagram = () => {
     if (!result) return null;
-    const vectors = [
-      { c: result.voltageR, label: 'V_R', color: 'hsl(185, 80%, 50%)' },
-      { c: result.voltageL, label: 'V_L', color: 'hsl(38, 90%, 55%)' },
-      { c: result.voltageC, label: 'V_C', color: 'hsl(0, 72%, 55%)' },
-    ].filter(v => complexMag(v.c) > 1e-6);
+    const vectors = (input.config === 'parallel'
+      ? [
+          { c: result.currentR, label: 'I_R', color: 'hsl(185, 80%, 50%)' },
+          { c: result.currentL, label: 'I_L', color: 'hsl(38, 90%, 55%)' },
+          { c: result.currentC, label: 'I_C', color: 'hsl(0, 72%, 55%)' },
+        ]
+      : [
+          { c: result.voltageR, label: 'V_R', color: 'hsl(185, 80%, 50%)' },
+          { c: result.voltageL, label: 'V_L', color: 'hsl(38, 90%, 55%)' },
+          { c: result.voltageC, label: 'V_C', color: 'hsl(0, 72%, 55%)' },
+        ]).filter(v => complexMag(v.c) > 1e-6);
 
     const maxMag = Math.max(...vectors.map(v => complexMag(v.c)), 1);
     const scale = 80 / maxMag;
@@ -63,8 +70,19 @@ const ACPhasorTab = () => {
       <div className="p-4 rounded-lg bg-card border border-border">
         <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
           <Waves className="w-4 h-4 text-primary" />
-          AC Phasor Parameters (Series RLC)
+          AC Phasor — Series or Parallel RLC
         </h3>
+        <p className="text-xs text-muted-foreground mb-4">Peak phasors. R stays positive. Set L or C to 0 to omit that element. The answer is withheld unless time-domain samples and the RMS power split agree.</p>
+        <div className="mb-4 max-w-xs">
+          <Label className="text-xs text-muted-foreground">Configuration</Label>
+          <Select value={input.config} onValueChange={value => { setResult(null); setInput({ ...input, config: value as ACInput['config'] }); }}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="series">Series — one current</SelectItem>
+              <SelectItem value="parallel">Parallel — one voltage</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {error && <p role="alert" className="text-destructive">{error}</p>}
@@ -136,7 +154,7 @@ const ACPhasorTab = () => {
           </div>
 
           <div className="p-4 rounded-lg bg-card border border-border">
-            <StepDisplay steps={result.steps} />
+            <StepDisplay steps={result.steps} verification="verified" />
           </div>
         </div>
       )}

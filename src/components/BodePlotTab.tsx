@@ -6,14 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Play, BarChart3 } from "lucide-react";
 import StepDisplay from "./StepDisplay";
 import { parseQuantity } from '@/lib/quantity';
+import { solveBode, type BodePoint, type BodeFilter } from '@/lib/bode';
 
-type FilterType = 'rc_lowpass' | 'rc_highpass' | 'rlc_bandpass' | 'rlc_series';
-
-interface BodePoint {
-  freq: number;
-  magDb: number;
-  phaseDeg: number;
-}
+type FilterType = BodeFilter;
 
 const BodePlotTab = () => {
   const [filterType, setFilterType] = useState<FilterType>('rc_lowpass');
@@ -35,125 +30,18 @@ const BodePlotTab = () => {
       if ([r,c,l,fs,fe].some(v => v <= 0) || fe <= fs) throw new Error('Positive component values and an increasing frequency range are required.');
     } catch (e) { setError(e instanceof Error ? e.message : 'Invalid quantities.'); return; }
 
-    const newSteps: string[] = [];
-    newSteps.push(`═══════════════════════════════════════`);
-    newSteps.push(`BODE PLOT — FREQUENCY RESPONSE ANALYSIS`);
-    newSteps.push(`═══════════════════════════════════════`);
-    newSteps.push(``);
-
-    // Calculate cutoff/resonant frequency
-    let fc: number;
-    if (filterType === 'rc_lowpass' || filterType === 'rc_highpass') {
-      fc = 1 / (2 * Math.PI * r * c);
-      newSteps.push(`Filter type: ${filterType === 'rc_lowpass' ? 'RC Low-Pass' : 'RC High-Pass'}`);
-      newSteps.push(`R = ${r} Ω, C = ${c} F`);
-      newSteps.push(``);
-      newSteps.push(`STEP 1: Cutoff frequency`);
-      newSteps.push(`  f_c = 1/(2πRC) = 1/(2π × ${r} × ${c})`);
-      newSteps.push(`  f_c = ${fc.toFixed(2)} Hz`);
-      newSteps.push(`  ω_c = ${(2 * Math.PI * fc).toFixed(2)} rad/s`);
-      newSteps.push(``);
-
-      if (filterType === 'rc_lowpass') {
-        newSteps.push(`STEP 2: Transfer function`);
-        newSteps.push(`  H(jω) = 1 / (1 + jω/ω_c)`);
-        newSteps.push(`  |H(jω)| = 1 / √(1 + (f/f_c)²)`);
-        newSteps.push(`  ∠H(jω) = -arctan(f/f_c)`);
-      } else {
-        newSteps.push(`STEP 2: Transfer function`);
-        newSteps.push(`  H(jω) = jω/ω_c / (1 + jω/ω_c)`);
-        newSteps.push(`  |H(jω)| = (f/f_c) / √(1 + (f/f_c)²)`);
-        newSteps.push(`  ∠H(jω) = 90° - arctan(f/f_c)`);
-      }
-    } else {
-      fc = 1 / (2 * Math.PI * Math.sqrt(l * c));
-      const Q = (1 / r) * Math.sqrt(l / c);
-      newSteps.push(`Filter type: ${filterType === 'rlc_bandpass' ? 'RLC Band-Pass' : 'Series RLC'}`);
-      newSteps.push(`R = ${r} Ω, L = ${l} H, C = ${c} F`);
-      newSteps.push(``);
-      newSteps.push(`STEP 1: Resonant frequency`);
-      newSteps.push(`  f₀ = 1/(2π√(LC)) = 1/(2π√(${l} × ${c}))`);
-      newSteps.push(`  f₀ = ${fc.toFixed(2)} Hz`);
-      newSteps.push(`  ω₀ = ${(2 * Math.PI * fc).toFixed(2)} rad/s`);
-      newSteps.push(``);
-      newSteps.push(`STEP 2: Quality factor`);
-      newSteps.push(`  Q = (1/R)√(L/C) = (1/${r})√(${l}/${c})`);
-      newSteps.push(`  Q = ${Q.toFixed(4)}`);
-      newSteps.push(`  Bandwidth = f₀/Q = ${(fc / Q).toFixed(2)} Hz`);
-    }
-    newSteps.push(``);
-
-    // Generate frequency points (log scale)
-    const numPts = 200;
-    const logFs = Math.log10(fs);
-    const logFe = Math.log10(fe);
-    const newPoints: BodePoint[] = [];
-
-    for (let i = 0; i <= numPts; i++) {
-      const logF = logFs + (i / numPts) * (logFe - logFs);
-      const f = Math.pow(10, logF);
-      const w = 2 * Math.PI * f;
-      let magDb: number, phaseDeg: number;
-
-      if (filterType === 'rc_lowpass') {
-        const wc = 2 * Math.PI * fc;
-        const ratio = w / wc;
-        const mag = 1 / Math.sqrt(1 + ratio * ratio);
-        magDb = 20 * Math.log10(mag);
-        phaseDeg = -Math.atan(ratio) * (180 / Math.PI);
-      } else if (filterType === 'rc_highpass') {
-        const wc = 2 * Math.PI * fc;
-        const ratio = w / wc;
-        const mag = ratio / Math.sqrt(1 + ratio * ratio);
-        magDb = 20 * Math.log10(mag);
-        phaseDeg = 90 - Math.atan(ratio) * (180 / Math.PI);
-      } else {
-        // RLC series impedance response
-        const XL = w * l;
-        const XC = 1 / (w * c);
-        const Zre = r;
-        const Zim = XL - XC;
-        const Zmag = Math.sqrt(Zre * Zre + Zim * Zim);
-        if (filterType === 'rlc_bandpass') {
-          // Bandpass: H = R/Z
-          const mag = r / Zmag;
-          magDb = 20 * Math.log10(mag);
-          phaseDeg = -Math.atan2(Zim, Zre) * (180 / Math.PI);
-        } else {
-          // Series RLC voltage across C: H = (1/jwC) / Z
-          const VcMag = XC / Zmag;
-          magDb = 20 * Math.log10(VcMag);
-          phaseDeg = -90 - Math.atan2(Zim, Zre) * (180 / Math.PI);
-        }
-      }
-
-      newPoints.push({ freq: f, magDb, phaseDeg });
-    }
-
-    // Key points
-    newSteps.push(`STEP 3: Key frequency response values`);
-    const keyFreqs = [fc / 10, fc / 2, fc, fc * 2, fc * 10].filter(f => f >= fs && f <= fe);
-    keyFreqs.forEach(f => {
-      const pt = newPoints.reduce((a, b) => Math.abs(b.freq - f) < Math.abs(a.freq - f) ? b : a);
-      newSteps.push(`  nearest plotted sample f = ${pt.freq.toFixed(1)} Hz (target ${f.toFixed(1)} Hz): |H| ≈ ${pt.magDb.toFixed(2)} dB, ∠H ≈ ${pt.phaseDeg.toFixed(1)}°`);
-    });
-    newSteps.push(``);
-    newSteps.push(`STEP 4: Asymptotic behavior`);
-    if (filterType === 'rc_lowpass') {
-      newSteps.push(`  f << f_c: |H| → 0 dB (passband)`);
-      newSteps.push(`  f = f_c: |H| = -3.01 dB (half-power point)`);
-      newSteps.push(`  f >> f_c: |H| rolls off at -20 dB/decade`);
-    } else if (filterType === 'rc_highpass') {
-      newSteps.push(`  f << f_c: |H| rises at +20 dB/decade`);
-      newSteps.push(`  f = f_c: |H| = -3.01 dB (half-power point)`);
-      newSteps.push(`  f >> f_c: |H| → 0 dB (passband)`);
-    } else {
-      newSteps.push(`  At resonance: |H| peaks (minimum impedance)`);
-      newSteps.push(`  Away from resonance: |H| rolls off`);
-    }
-
-    setPoints(newPoints);
-    setSteps(newSteps);
+    try {
+      const solved = solveBode(filterType, r, l, c, fs, fe);
+      const newSteps = [
+        'Bode samples are H(jω), checked against a second magnitude formula.',
+        ...solved.steps,
+      ];
+      if (filterType === 'rc_lowpass') newSteps.push('Passband is near 0 dB. One decade above cutoff is near −20 dB.');
+      else if (filterType === 'rc_highpass') newSteps.push('Stopband rises near +20 dB/decade. Passband is near 0 dB.');
+      else newSteps.push('The peak is at resonance. Values away from resonance fall off.');
+      setPoints(solved.points);
+      setSteps(newSteps);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Answer withheld.'); }
   };
 
   const renderBodePlot = () => {
@@ -300,7 +188,7 @@ const BodePlotTab = () => {
             {renderBodePlot()}
           </div>
           <div className="p-4 rounded-lg bg-card border border-border">
-            <StepDisplay steps={steps} />
+            <StepDisplay steps={steps} verification="verified" />
           </div>
         </div>
       )}

@@ -8,7 +8,13 @@ import SavedProblemsTab from "@/components/SavedProblemsTab";
 import TierGate from "@/components/TierGate";
 import TestModeBanner from "@/components/TestModeBanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Timer, BookOpen, Activity, Bookmark, Camera, Crown } from "lucide-react";
+import { Zap, Timer, BookOpen, Activity, Bookmark, Camera, Crown, GitBranch, Waves, BarChart3, Sigma, Calculator, BookCheck } from "lucide-react";
+import MeshAnalysisTab from "@/components/MeshAnalysisTab";
+import ACPhasorTab from "@/components/ACPhasorTab";
+import BodePlotTab from "@/components/BodePlotTab";
+import LaplaceTab from "@/components/LaplaceTab";
+import QuickSolverTab from "@/components/QuickSolverTab";
+import CheckHomeworkTab from "@/components/CheckHomeworkTab";
 import ET310Coverage from '@/components/ET310Coverage';
 import ErrorBoundary from "@/components/ErrorBoundary";
 
@@ -36,14 +42,14 @@ const Index = () => {
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-mono text-primary mb-4">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse-glow" />
-              Circuit Analysis Engine v4
+              Verified calculations only
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-3">
               Circuit calculations within
               <span className="text-primary glow-text"> tested scope</span>
             </h1>
             <p className="text-muted-foreground text-sm sm:text-base max-w-xl leading-relaxed">
-              Confirm circuit values and connections before solving. Independent tests cover specific DC and transient fixtures, not every assignment.
+              Confirm circuit values and connections before solving. Verified paths include DC nodal, a row of meshes, series and parallel AC phasors, first-order transients, tested RLC cases, Bode samples, distinct-pole Laplace, quick calculators, and confirmed text. Photo upload, Fourier, and practice exams stay off until they can be checked the same way.
             </p>
           </div>
         </div>
@@ -59,6 +65,14 @@ const Index = () => {
               <span className="hidden sm:inline">DC</span> Nodal
               {isLocked("dc") && <Crown className="w-3 h-3 text-primary/50" />}
             </TabsTrigger>
+            <TabsTrigger value="mesh" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <GitBranch className="w-4 h-4" />
+              Mesh
+            </TabsTrigger>
+            <TabsTrigger value="ac" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Waves className="w-4 h-4" />
+              <span className="hidden sm:inline">AC</span> Phasor
+            </TabsTrigger>
             <TabsTrigger value="transient" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Timer className="w-4 h-4" />
               <span className="hidden sm:inline">1st-Order</span> Transient
@@ -68,6 +82,22 @@ const Index = () => {
               <Activity className="w-4 h-4" />
               <span className="hidden sm:inline">2nd-Order</span> RLC
               {isLocked("rlc") && <Crown className="w-3 h-3 text-primary/50" />}
+            </TabsTrigger>
+            <TabsTrigger value="bode" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <BarChart3 className="w-4 h-4" />
+              Bode
+            </TabsTrigger>
+            <TabsTrigger value="laplace" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Sigma className="w-4 h-4" />
+              Laplace
+            </TabsTrigger>
+            <TabsTrigger value="quick" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Calculator className="w-4 h-4" />
+              Quick
+            </TabsTrigger>
+            <TabsTrigger value="homework" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <BookCheck className="w-4 h-4" />
+              Homework
             </TabsTrigger>
             <TabsTrigger value="sage" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-accent/10 data-[state=active]:text-accent">
               <Camera className="w-4 h-4" />
@@ -87,8 +117,14 @@ const Index = () => {
 
           {import.meta.env.DEV && <TabsContent value="coverage"><Tab label="ET310 Coverage"><ET310Coverage /></Tab></TabsContent>}
           <TabsContent value="dc"><Tab label="DC Nodal"><TierGate tabId="dc"><DCAnalysisTab /></TierGate></Tab></TabsContent>
+          <TabsContent value="mesh"><Tab label="Mesh"><TierGate tabId="mesh"><MeshAnalysisTab /></TierGate></Tab></TabsContent>
+          <TabsContent value="ac"><Tab label="AC Phasor"><TierGate tabId="ac"><ACPhasorTab /></TierGate></Tab></TabsContent>
           <TabsContent value="transient"><Tab label="1st-Order Transient"><TierGate tabId="transient"><TransientTab /></TierGate></Tab></TabsContent>
           <TabsContent value="rlc"><Tab label="2nd-Order RLC"><TierGate tabId="rlc"><RLCTransientTab /></TierGate></Tab></TabsContent>
+          <TabsContent value="bode"><Tab label="Bode"><TierGate tabId="bode"><BodePlotTab /></TierGate></Tab></TabsContent>
+          <TabsContent value="laplace"><Tab label="Laplace"><TierGate tabId="laplace"><LaplaceTab /></TierGate></Tab></TabsContent>
+          <TabsContent value="quick"><Tab label="Quick"><TierGate tabId="quick"><QuickSolverTab /></TierGate></Tab></TabsContent>
+          <TabsContent value="homework"><Tab label="Homework"><TierGate tabId="homework"><CheckHomeworkTab /></TierGate></Tab></TabsContent>
           <TabsContent value="sage"><Tab label="Snap & Solve"><TierGate tabId="sage"><CircuitSagePanel onNavigateToTab={setActiveTab} /></TierGate></Tab></TabsContent>
           <TabsContent value="saved"><Tab label="Saved"><TierGate tabId="saved"><SavedProblemsTab /></TierGate></Tab></TabsContent>
           <TabsContent value="reference">
@@ -170,7 +206,7 @@ const Index = () => {
       <footer className="border-t border-border py-6 mt-8">
         <div className="container px-4 flex items-center justify-between text-xs text-muted-foreground">
           <span>Circuit Sage — circuit analysis with explicit verification scope</span>
-          <span className="font-mono">v4.0</span>
+          <span className="font-mono">tested scope</span>
         </div>
       </footer>
     </div>

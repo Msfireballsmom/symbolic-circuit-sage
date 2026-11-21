@@ -727,7 +727,7 @@ export function solveQuestion(model: CircuitModel, question: AnalysisRequest): S
     default:
       throw new UnsupportedProblemError(
         `"${question.kind}" analysis is not verified yet (coming soon).`,
-        "Verified scope: DC, nodal/mesh with dependent sources, superposition, Thévenin, Norton, maximum power, first-order RC/RL.",
+        "Verified scope: DC nodal (including dependent sources), superposition, Thévenin, Norton, maximum power, and first-order RC/RL.",
       );
   }
 }

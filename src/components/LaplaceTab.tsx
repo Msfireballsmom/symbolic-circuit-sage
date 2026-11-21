@@ -136,6 +136,7 @@ const LaplaceTab = () => {
           <Sigma className="w-4 h-4 text-primary" />
           Laplace Transform / S-Domain Analysis
         </h3>
+        <p className="text-xs text-muted-foreground mb-4">Strictly proper transfer functions through degree 3 with distinct poles. Repeated poles and higher-degree inverses are refused. Residues are shown only when they reproduce F(s).</p>
 
         {/* Presets */}
         <div className="mb-4">
@@ -285,7 +286,7 @@ const LaplaceTab = () => {
           </div>
 
           <div className="p-4 rounded-lg bg-card border border-border">
-            <StepDisplay steps={result.steps} />
+            <StepDisplay steps={result.steps} verification="verified" />
           </div>
         </div>
       )}

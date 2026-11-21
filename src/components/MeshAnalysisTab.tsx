@@ -4,8 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { solveMesh, MeshComponent, MeshResult } from "@/lib/mesh-solver";
+import { realizeMesh } from "@/lib/mesh-equivalence";
 import StepDisplay from "./StepDisplay";
 import MatrixDisplay from "./MatrixDisplay";
+import NetlistSketch from "./NetlistSketch";
 import { Plus, Trash2, Play, GitBranch } from "lucide-react";
 
 const MeshAnalysisTab = () => {
@@ -44,6 +46,10 @@ const MeshAnalysisTab = () => {
   const parseMeshes = (str: string): number[] => {
     return str.split(',').map(s => /^\d+$/.test(s.trim()) ? Number(s.trim()) : NaN);
   };
+
+  let sketch: ReturnType<typeof realizeMesh> | null = null;
+  let sketchError = '';
+  try { sketch = realizeMesh(numMeshes, components); } catch (error) { sketchError = error instanceof Error ? error.message : 'This mesh list is not a verified row.'; }
 
   const solve = () => {
     try {
@@ -98,7 +104,6 @@ const MeshAnalysisTab = () => {
                   <SelectContent>
                     <SelectItem value="resistor">Resistor (Ω)</SelectItem>
                     <SelectItem value="voltage_source">V Source (V)</SelectItem>
-                    <SelectItem value="current_source">I Source (A)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -128,9 +133,9 @@ const MeshAnalysisTab = () => {
         </div>
 
         <p className="mt-3 text-xs text-muted-foreground">
-          Assign each component to its mesh(es). Shared components (e.g. R between mesh 1 and 2) use "1,2".
-          Voltage sources: positive value means source aids mesh current in first listed mesh.
+          One row of clockwise meshes. A shared element uses "1,2" and carries i1 − i2. A positive voltage aids the first listed mesh. Current sources and meshes that share in a loop are refused; use DC Nodal for those.
         </p>
+        {sketchError && <p className="mt-2 text-xs text-warning">{sketchError}</p>}
 
         <Button onClick={solve} className="mt-4 gap-2 w-full sm:w-auto">
           <Play className="w-4 h-4" /> Solve Mesh Equations
@@ -188,15 +193,16 @@ const MeshAnalysisTab = () => {
             <div className="mt-4 flex items-center gap-2 text-sm">
               <span className={`w-2 h-2 rounded-full ${result.powerBalance.balanced ? 'bg-success' : 'bg-warning'}`} />
               <span className={result.powerBalance.balanced ? 'text-success' : 'text-warning'}>
-                Power Balance: {result.powerBalance.balanced ? 'KVL/power checks passed — full independent certification pending' : 'Imbalance Detected ⚠'}
+                Power Balance: {result.powerBalance.balanced ? 'Verified against nodal analysis' : 'Imbalance Detected'}
               </span>
             </div>
           </div>
 
+          {sketch && <NetlistSketch edges={sketch.edges.filter(edge => edge.kind !== 'wire').map(edge => ({ label: edge.label, nodeA: edge.nodeA, nodeB: edge.nodeB }))} positions={sketch.positions} caption="Row equivalent used for the nodal cross-check. Node 0 is the outer rail. Shared branches run from a junction to that rail." />}
           <MatrixDisplay G={result.matrix.R} I={result.matrix.V} labels={result.matrix.labels} />
           
           <div className="p-4 rounded-lg bg-card border border-border">
-            <StepDisplay steps={result.steps} />
+            <StepDisplay steps={result.steps} verification="verified" />
           </div>
         </div>
       )}

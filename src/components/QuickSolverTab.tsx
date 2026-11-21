@@ -193,7 +193,7 @@ const QuickSolverTab = () => {
         return (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Enter each source and the contribution it makes to the desired response when acting alone.
+              This form only adds contributions you type. It does not solve a circuit, and the solver will refuse it. Use DC Nodal for superposition.
             </p>
             <div className="flex items-center gap-2 mb-2">
               <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => {
@@ -292,7 +292,7 @@ const QuickSolverTab = () => {
         <div className="space-y-4 animate-slide-up">
           <div className="p-4 rounded-lg bg-card border border-border">
             <h3 className="text-sm font-semibold text-foreground mb-3">{result.title}</h3>
-            <p role="status" className="text-warning text-xs mb-3">Unverified calculator output — not independent circuit certification. Thévenin inputs are supplied measurements, not inferred terminals.</p>
+            <p role="status" className="text-xs text-muted-foreground mb-3">Checked against an independent nodal circuit before display. Thévenin uses the open-circuit voltage and short-circuit current you entered.</p>
             <div className="flex flex-wrap gap-3 mb-4">
               {result.results.map((r, i) => (
                 <div key={i} className="px-4 py-2 rounded-md bg-primary/10 border border-primary/30">
@@ -303,7 +303,7 @@ const QuickSolverTab = () => {
                 </div>
               ))}
             </div>
-            <StepDisplay steps={result.steps} />
+            <StepDisplay steps={result.steps} verification="verified" />
           </div>
         </div>
       )}
