@@ -146,6 +146,7 @@ const FourierTab = () => {
           <AudioWaveform className="w-4 h-4 text-primary" />
           Fourier Series Analysis
         </h3>
+        <p className="text-xs text-muted-foreground mb-4">Square, sawtooth, triangle, pulse, and rectified sine only. Coefficients are shown after they match an independent midpoint integral. A custom sketch is not accepted.</p>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div>
@@ -279,7 +280,7 @@ const FourierTab = () => {
 
           {/* Full derivation */}
           <div className="p-4 rounded-lg bg-card border border-border">
-            <StepDisplay steps={result.steps} />
+            <StepDisplay steps={result.steps} verification="verified" />
           </div>
         </div>
       )}

@@ -8,7 +8,10 @@ import SavedProblemsTab from "@/components/SavedProblemsTab";
 import TierGate from "@/components/TierGate";
 import TestModeBanner from "@/components/TestModeBanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Timer, BookOpen, Activity, Bookmark, Camera, Crown, GitBranch, Waves, BarChart3, Sigma, Calculator, BookCheck } from "lucide-react";
+import { Zap, Timer, BookOpen, Activity, Bookmark, Camera, Crown, GitBranch, Waves, BarChart3, Sigma, Calculator, BookCheck, AudioWaveform, Trophy, Pencil } from "lucide-react";
+import FourierTab from "@/components/FourierTab";
+import PracticeExamTab from "@/components/PracticeExamTab";
+import SchematicEditor from "@/components/SchematicEditor";
 import MeshAnalysisTab from "@/components/MeshAnalysisTab";
 import ACPhasorTab from "@/components/ACPhasorTab";
 import BodePlotTab from "@/components/BodePlotTab";
@@ -49,7 +52,7 @@ const Index = () => {
               <span className="text-primary glow-text"> tested scope</span>
             </h1>
             <p className="text-muted-foreground text-sm sm:text-base max-w-xl leading-relaxed">
-              Confirm circuit values and connections before solving. Verified paths include DC nodal, a row of meshes, series and parallel AC phasors, first-order transients, tested RLC cases, Bode samples, distinct-pole Laplace, quick calculators, and confirmed text. Photo upload, Fourier, and practice exams stay off until they can be checked the same way.
+              Confirm circuit values and connections before solving. Verified paths include a drawn DC schematic, DC nodal, a row of meshes, series and parallel AC phasors, first-order transients, tested RLC cases, Bode samples, distinct-pole Laplace, Fourier series, quick calculators, homework checks, and a practice exam with checked numeric keys. Photo and PDF upload stay off.
             </p>
           </div>
         </div>
@@ -91,6 +94,18 @@ const Index = () => {
               <Sigma className="w-4 h-4" />
               Laplace
             </TabsTrigger>
+            <TabsTrigger value="fourier" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <AudioWaveform className="w-4 h-4" />
+              Fourier
+            </TabsTrigger>
+            <TabsTrigger value="draw" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Pencil className="w-4 h-4" />
+              Draw
+            </TabsTrigger>
+            <TabsTrigger value="exam" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Trophy className="w-4 h-4" />
+              Exam
+            </TabsTrigger>
             <TabsTrigger value="quick" className="gap-2 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Calculator className="w-4 h-4" />
               Quick
@@ -123,6 +138,9 @@ const Index = () => {
           <TabsContent value="rlc"><Tab label="2nd-Order RLC"><TierGate tabId="rlc"><RLCTransientTab /></TierGate></Tab></TabsContent>
           <TabsContent value="bode"><Tab label="Bode"><TierGate tabId="bode"><BodePlotTab /></TierGate></Tab></TabsContent>
           <TabsContent value="laplace"><Tab label="Laplace"><TierGate tabId="laplace"><LaplaceTab /></TierGate></Tab></TabsContent>
+          <TabsContent value="fourier"><Tab label="Fourier"><TierGate tabId="fourier"><FourierTab /></TierGate></Tab></TabsContent>
+          <TabsContent value="draw"><Tab label="Draw"><TierGate tabId="draw"><SchematicEditor /></TierGate></Tab></TabsContent>
+          <TabsContent value="exam"><Tab label="Exam"><TierGate tabId="exam"><PracticeExamTab /></TierGate></Tab></TabsContent>
           <TabsContent value="quick"><Tab label="Quick"><TierGate tabId="quick"><QuickSolverTab /></TierGate></Tab></TabsContent>
           <TabsContent value="homework"><Tab label="Homework"><TierGate tabId="homework"><CheckHomeworkTab /></TierGate></Tab></TabsContent>
           <TabsContent value="sage"><Tab label="Snap & Solve"><TierGate tabId="sage"><CircuitSagePanel onNavigateToTab={setActiveTab} /></TierGate></Tab></TabsContent>
