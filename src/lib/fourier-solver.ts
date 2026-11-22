@@ -1,5 +1,7 @@
 // ============ FOURIER SERIES ANALYSIS ENGINE ============
-// Computes Fourier coefficients, plots harmonics, and shows full derivation
+// Closed-form coefficients are returned only when midpoint quadrature agrees.
+
+import { midpointFourier, type FourierShape } from './independent-fourier';
 
 export type WaveformType = 'square' | 'sawtooth' | 'triangle' | 'rectified_sine' | 'half_rectified' | 'pulse' | 'custom';
 
@@ -90,13 +92,31 @@ function getAnalyticCoefficients(type: WaveformType, A: number, n: number, duty:
       // The plotted waveform starts at −A, peaks at T/2; every odd cosine coefficient is negative.
       if (n % 2 === 0) return { an: 0, bn: 0 };
       return { an: -8 * A / (n * n * Math.PI * Math.PI), bn: 0 };
+    case 'pulse': {
+      const angle = 2 * Math.PI * n * duty;
+      return { an: (A * Math.sin(angle)) / (n * Math.PI), bn: (A * (1 - Math.cos(angle))) / (n * Math.PI) };
+    }
+    case 'rectified_sine':
+      if (n % 2 === 1) return { an: 0, bn: 0 };
+      return { an: -4 * A / (Math.PI * (n * n - 1)), bn: 0 };
+    case 'half_rectified':
+      if (n === 1) return { an: 0, bn: A / 2 };
+      if (n % 2 === 1) return { an: 0, bn: 0 };
+      return { an: -2 * A / (Math.PI * (n * n - 1)), bn: 0 };
     default:
-      return { an: NaN, bn: NaN }; // fall through to numerical
+      return { an: NaN, bn: NaN };
   }
 }
 
 export function solveFourier(input: FourierInput): FourierResult {
   const { waveform, amplitude: A, period: T, dutyCycle, numHarmonics, dcOffset } = input;
+  if (waveform === 'custom') throw new Error('A custom waveform has no defined shape. Choose square, sawtooth, triangle, pulse, or a rectified sine.');
+  if (![A, T, dutyCycle, numHarmonics, dcOffset].every(Number.isFinite) || !(T > 0) || !Number.isInteger(numHarmonics) || numHarmonics < 1 || numHarmonics > 30) {
+    throw new Error('Fourier analysis needs a positive period and 1 to 30 harmonics.');
+  }
+  if (waveform === 'pulse' && !(dutyCycle > 0 && dutyCycle < 1)) throw new Error('Pulse duty cycle must be between 0 and 1.');
+  const supported: FourierShape[] = ['square', 'sawtooth', 'triangle', 'rectified_sine', 'half_rectified', 'pulse'];
+  if (!supported.includes(waveform)) throw new Error('This waveform is not in the verified Fourier set.');
   const steps: string[] = [];
   const f0 = 1 / T;
   const omega0 = 2 * Math.PI * f0;
@@ -363,9 +383,22 @@ export function solveFourier(input: FourierInput): FourierResult {
   const thd = Math.sqrt(harmonicPower) / c1 * 100;
   steps.push(`  THD = √(Σcₙ² for n≥2) / c₁ × 100%`);
   steps.push(`  THD = ${thd.toFixed(2)}%`);
-  if (thd < 5) steps.push(`  ✓ Low distortion (nearly sinusoidal)`);
-  else if (thd < 20) steps.push(`  Moderate harmonic content`);
-  else steps.push(`  High harmonic content (rich spectrum)`);
+  if (thd < 5) steps.push(`  Low distortion relative to the fundamental.`);
+  else if (thd < 20) steps.push(`  Moderate harmonic content.`);
+  else steps.push(`  High harmonic content.`);
+
+  const wave = { waveform, amplitude: A, period: T, dutyCycle, dcOffset };
+  const scale = Math.max(1, Math.abs(A), Math.abs(dcOffset));
+  const agrees = (actual: number, expected: number) => Math.abs(actual - expected) <= 1e-4 * scale;
+  const dcCheck = midpointFourier(wave, 0);
+  if (!agrees(a0, dcCheck.an)) throw new Error('Unverified: the DC coefficient disagrees with midpoint quadrature. Answer withheld.');
+  for (const coefficient of coefficients) {
+    const check = midpointFourier(wave, coefficient.n);
+    if (!agrees(coefficient.an, check.an) || !agrees(coefficient.bn, check.bn)) {
+      throw new Error(`Unverified: harmonic ${coefficient.n} disagrees with midpoint quadrature. Answer withheld.`);
+    }
+  }
+  steps.push(`Verified: a0 and every listed an, bn agree with an independent 24000-point midpoint integral.`);
 
   return {
     a0,

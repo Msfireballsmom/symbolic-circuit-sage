@@ -7,12 +7,12 @@ import { solveVerifiedTransient } from '@/lib/verified-transient';
 import { solveRLC } from '@/lib/circuit-solver';
 
 describe('Product readiness boundaries', () => {
-  for (const id of ['fourier', 'exam', 'photo', 'generation', 'history'] as const) {
+  for (const id of ['photo', 'generation', 'history'] as const) {
     it(`withholds ${id} actions without independent end-to-end evidence`, () => {
       expect(WORKFLOW_AVAILABILITY[id].enabled).toBe(false);
     });
   }
-  for (const id of ['quick', 'mesh', 'ac', 'laplace', 'bode', 'homework', 'dc', 'transient', 'rlc', 'sage'] as const) {
+  for (const id of ['quick', 'mesh', 'ac', 'laplace', 'bode', 'homework', 'fourier', 'exam', 'dc', 'transient', 'rlc', 'sage'] as const) {
     it(`enables ${id} only with a verification path`, () => {
       expect(WORKFLOW_AVAILABILITY[id].enabled).toBe(true);
       expect(WORKFLOW_AVAILABILITY[id].reason.length).toBeGreaterThan(20);
