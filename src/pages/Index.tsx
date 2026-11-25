@@ -1,5 +1,6 @@
 import { useState } from "react";
 import SolverHeader from "@/components/SolverHeader";
+import SiteFooter from "@/components/SiteFooter";
 import DCAnalysisTab from "@/components/DCAnalysisTab";
 import TransientTab from "@/components/TransientTab";
 import RLCTransientTab from "@/components/RLCTransientTab";
@@ -203,12 +204,7 @@ const Index = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border py-6 mt-8">
-        <div className="container px-4 flex items-center justify-between text-xs text-muted-foreground">
-          <span>Circuit Sage — circuit analysis with explicit verification scope</span>
-          <span className="font-mono">tested scope</span>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 };

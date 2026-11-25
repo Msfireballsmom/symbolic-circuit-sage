@@ -40,17 +40,11 @@ type SolverResult = {
   type: 'dep'; data: DepSourceResult;
 };
 
-const EXAMPLE_PROBLEMS = [
+export const EXAMPLE_PROBLEMS = [
   "Find the voltage across R2 using voltage divider. Vs = 12V, R1 = 4kΩ, R2 = 6kΩ",
   "Use nodal analysis. 12V source between node 1 and ground, R1 = 1kΩ between node 1 and node 2, R2 = 2kΩ between node 2 and ground",
-  "Find equivalent resistance. R1 = 100Ω, R2 = 200Ω, R3 = 300Ω in series",
   "RC transient circuit. R = 10kΩ, C = 47μF, Vs = 5V, v(0) = 0V",
-  "AC phasor analysis. Vs = 120V, f = 60Hz, R = 100Ω, L = 50mH, C = 10μF, series RLC",
   "Ohm's law. V = 24V, R = 4.7kΩ, find current and power",
-  "Mesh analysis with 2 meshes. Vs = 24V, R1 = 2kΩ in mesh 1, R2 = 4kΩ shared between mesh 1 and mesh 2, R3 = 6kΩ in mesh 2",
-  "Inverting op-amp. Rf = 100kΩ, Rin = 10kΩ, Vin = 0.5V",
-  "Half-wave rectifier. Vs = 12V peak, R = 1kΩ, silicon diode",
-  "Zener regulator. Vs = 15V, R = 330Ω, Vz = 5.1V",
 ];
 
 const CircuitSagePanel = ({ onNavigateToTab }: CircuitSagePanelProps) => {

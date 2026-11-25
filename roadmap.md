@@ -1,4 +1,7 @@
 # Focused product blocker pass
+- [ ] Add launch contact/privacy/terms pages and shared footer; audit browser input handling.
+- [ ] Remove refused Snap & Solve examples; preserve historical numeric regression fixtures.
+- [ ] Run all tests, exercise public pages/examples in the browser, and check compilation without publishing.
 - [x] Audit visible math, parsing, generation, homework, admin, saved and export paths; remove fabricated claims.
 - [x] Block ambiguous/unsupported confirmed answers and add focused numerical/input regressions.
 - [x] Harden configured AI functions; deployed invalid-session checks return 401. Test Pro local solve controls exercised.

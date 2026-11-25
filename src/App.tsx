@@ -10,6 +10,9 @@ import AuthPage from "./pages/AuthPage";
 import AdminPage from "./pages/AdminPage";
 import PricingPage from "./pages/PricingPage";
 import NotFound from "./pages/NotFound";
+import ContactPage from "./pages/ContactPage";
+import PrivacyPage from "./pages/PrivacyPage";
+import TermsPage from "./pages/TermsPage";
 import { AUTH_ENABLED } from "@/lib/feature-flags";
 
 const queryClient = new QueryClient();
@@ -41,6 +44,9 @@ const AppRoutes = () => (
     <Route path="/login" element={AUTH_ENABLED ? <AuthRoute><AuthPage /></AuthRoute> : <Navigate to="/" replace />} />
     <Route path="/admin" element={<AdminPage />} />
     <Route path="/pricing" element={<PricingPage />} />
+    <Route path="/contact" element={<ContactPage />} />
+    <Route path="/privacy" element={<PrivacyPage />} />
+    <Route path="/terms" element={<TermsPage />} />
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
